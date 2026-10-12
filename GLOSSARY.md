@@ -46,7 +46,7 @@ The display name Rex shows for a session, window or block. Labels aren't unique.
 _Avoid_: name, title
 
 **Default label**:
-The label Rex generates for a window or block nobody labeled: `Window` plus the last 8 hex characters of the window's ID, or `shell` for a shell block. Any other label is user-set. Rex also generates labels for sessions (random word pairs such as `amber-ridge`), but those can't be told apart from user-set ones, so a session never has a default label.
+The label Rex generates for a window or block nobody labeled: `Window` plus the last 8 hex characters of the window's ID, or `shell` for a shell block. A block whose label was cleared gets `Block` plus the last 8 hex characters of its ID, also a default label. Any other label is user-set. Rex also generates labels for sessions (random word pairs such as `amber-ridge`), but those can't be told apart from user-set ones, so a session never has a default label.
 
 **Working directory**:
 The directory a shell block's shell was last in.
@@ -67,6 +67,10 @@ A server with no live sessions worth saving: none at all, or only untouched ones
 **Untouched session**:
 A session with nothing worth restoring: one window holding one shell block, default window and block labels, its working directory still home, and no last command. Its label doesn't count, so a session that was only renamed is still untouched. Untouched sessions aren't saved.
 
+**Scrollback**:
+A shell block's earlier output, saved with a snapshot and printed back above the block's new prompt when it's restored. A block that was showing a full-screen program (on the terminal's alternate screen), or running a program that draws its interface on the main screen (`claude`, by default), has none saved.
+_Avoid_: history (that's the shell's command history), pane contents
+
 **Autosave**:
 A save that runs on a timer without the user asking.
 _Avoid_: scheduled save, periodic save
@@ -75,11 +79,11 @@ _Avoid_: scheduled save, periodic save
 The hook in a shell block's outermost shell that records each command as it starts. Shells nested inside it (`nix develop`, `poetry shell`) don't record.
 
 **Ignored command**:
-A command the recorder doesn't record, leaving the previous last command in place: anything on the ignore list, and any multi-line command.
+A command the recorder doesn't record, leaving the previous last command in place: a command on the ignore list (by name, or by the last part of its path, as `/bin/ls`) run on its own, rex-resurrect itself by default, and any multi-line command.
 _Avoid_: skip list, skipped command
 
 **Last command**:
-The command a restored shell block gets typed at its prompt, never run: the most recent command the block's outermost shell recorded. A restored block starts out with the last command it was restored with and keeps it, across any number of server instances, until its shell records a new one. A block with neither falls back to the program in its foreground.
+The command a restored shell block gets typed at its prompt, never run: the most recent command the block's recorder recorded. A block the recorder has recorded nothing for (no recorder installed, or its shell started before it was) falls back to the program in its foreground, and keeps the last such program once it exits; failing that, a restored block keeps the last command it was restored with, or none. That way it carries forward across any number of server instances. rex-resurrect itself running in a block is never its last command.
 _Avoid_: last history entry
 
 ### Restoring
@@ -97,6 +101,9 @@ A live session that restore created from a saved session. It belongs to the save
 **Lineage**:
 A session plus every session restore has created from it, across any number of restarts. Only one session of a lineage is ever live.
 _Avoid_: version (easily confused with a snapshot)
+
+**Startup window**:
+The first two minutes after restore creates a session, while its blocks' shells may still be starting. A save in it saves the session's blocks as restore created them, except a block the recorder has recorded a command in since.
 
 **Skipped session**:
 A saved session that restore doesn't create because a session of its lineage is already live. A live session with the same label but a different lineage doesn't count.

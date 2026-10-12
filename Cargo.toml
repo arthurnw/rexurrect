@@ -1,0 +1,18 @@
+[package]
+name = "rex-resurrect"
+version = "0.1.0"
+edition = "2024"
+description = "Save Rex sessions and recreate them after the Rex server stops"
+license = "MIT"
+repository = "https://github.com/cemcatik/rex-resurrect"
+readme = "README.md"
+publish = false
+
+[[bin]]
+name = "rex-resurrect"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
