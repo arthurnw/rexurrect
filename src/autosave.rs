@@ -1,4 +1,4 @@
-//! `rex-resurrect autosave install|uninstall`: run `save` on a timer.
+//! `rexurrect autosave install|uninstall`: run `save` on a timer.
 //!
 //! The scheduler (launchd today) is behind [`crate::scheduler::Scheduler`].
 
@@ -45,7 +45,7 @@ pub fn run(command: &AutosaveCommand) -> Result<ExitCode> {
 }
 
 fn install(options: &InstallOptions) -> Result<ExitCode> {
-    let program = std::env::current_exe().with_context(|| "finding rex-resurrect's own path")?;
+    let program = std::env::current_exe().with_context(|| "finding rexurrect's own path")?;
     let state = StateDir::from_env()?;
     let job = Job {
         program: utf8(program.as_os_str())?,
@@ -56,7 +56,7 @@ fn install(options: &InstallOptions) -> Result<ExitCode> {
     let scheduler = scheduler::for_this_platform()?;
     scheduler.install(&job)?;
     println!(
-        "autosave installed: `rex-resurrect save` runs every {} as the {}\n\
+        "autosave installed: `rexurrect save` runs every {} as the {}\n\
          - server: {}\n\
          - state:  {}\n\
          - log:    {} (failures, and blocks whose scrollback was too large to save)\n\
@@ -80,11 +80,11 @@ fn install(options: &InstallOptions) -> Result<ExitCode> {
 ///   and not a fallback when the server isn't running.
 /// - the state directory, as resolved here, so autosave shares snapshots,
 ///   lineage and recorder files with manual runs and the zsh recorder;
-/// - `REX_RESURRECT_KEEP`, if set, so autosave doesn't prune the snapshots
-///   the user wants kept (checked here, so a bad value fails now rather
-///   than every autosave);
-/// - `REX_RESURRECT_NO_SCROLLBACK`, if set (even empty), so autosave leaves
-///   out the scrollback of the same programs as manual saves;
+/// - `REXURRECT_KEEP`, if set, so autosave doesn't prune the snapshots the
+///   user wants kept (checked here, so a bad value fails now rather than
+///   every autosave);
+/// - `REXURRECT_NO_SCROLLBACK`, if set (even empty), so autosave leaves out
+///   the scrollback of the same programs as manual saves;
 /// - `PATH`: `rex`'s directory first, then the system's.
 fn job_env(state: &StateDir) -> Result<BTreeMap<String, String>> {
     let server = match settings::env_non_empty(rex::SERVER_VAR) {
@@ -137,7 +137,7 @@ fn utf8(value: &OsStr) -> Result<String> {
 }
 
 /// Where the README explains auto-restore, including the line to remove.
-const AUTO_RESTORE_DOCS: &str = "https://github.com/cemcatik/rex-resurrect#auto-restore";
+const AUTO_RESTORE_DOCS: &str = "https://github.com/cemcatik/rexurrect#auto-restore";
 
 fn uninstall() -> Result<ExitCode> {
     let scheduler = scheduler::for_this_platform()?;
@@ -151,10 +151,10 @@ fn uninstall() -> Result<ExitCode> {
     }
     println!(
         "\
-To back out of rex-resurrect completely:
-- zsh recorder: remove the line that sources rex-resurrect.plugin.zsh from ~/.zshrc
-  (or `rex-resurrect` from oh-my-zsh's plugins=(...)), then open new shells.
-- auto-restore: remove the rex-resurrect line from Rex's init.lua; see
+To back out of rexurrect completely:
+- zsh recorder: remove the line that sources rexurrect.plugin.zsh from ~/.zshrc
+  (or `rexurrect` from oh-my-zsh's plugins=(...)), then open new shells.
+- auto-restore: remove the rexurrect line from Rex's init.lua; see
   {AUTO_RESTORE_DOCS}"
     );
     if let Ok(state) = StateDir::from_env() {

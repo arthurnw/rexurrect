@@ -1,11 +1,11 @@
-//! rex-resurrect's state directory: snapshots, the lineage map and anything
-//! else rex-resurrect has to remember between runs, and the file operations
-//! every module uses on it.
+//! rexurrect's state directory: snapshots, the lineage map and anything else
+//! rexurrect has to remember between runs, and the file operations every
+//! module uses on it.
 //!
 //! Location, first match wins:
-//! 1. `$REX_RESURRECT_STATE_DIR`
-//! 2. `$XDG_STATE_HOME/rex-resurrect` (only if `XDG_STATE_HOME` is absolute)
-//! 3. `$HOME/.local/state/rex-resurrect`
+//! 1. `$REXURRECT_STATE_DIR`
+//! 2. `$XDG_STATE_HOME/rexurrect` (only if `XDG_STATE_HOME` is absolute)
+//! 3. `$HOME/.local/state/rexurrect`
 //!
 //! Each module owns the names of its files inside it.
 
@@ -22,7 +22,7 @@ use serde::de::DeserializeOwned;
 use crate::error::{Context, Error, Result};
 use crate::settings;
 
-pub const STATE_DIR_VAR: &str = "REX_RESURRECT_STATE_DIR";
+pub const STATE_DIR_VAR: &str = "REXURRECT_STATE_DIR";
 
 #[derive(Debug, Clone)]
 pub struct StateDir {
@@ -79,9 +79,9 @@ fn resolve(
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
     {
-        return Some(xdg.join("rex-resurrect"));
+        return Some(xdg.join("rexurrect"));
     }
-    home.map(|home| PathBuf::from(home).join(".local/state/rex-resurrect"))
+    home.map(|home| PathBuf::from(home).join(".local/state/rexurrect"))
 }
 
 /// Writes a state file atomically (see [`write_atomically`]), readable and
@@ -281,7 +281,7 @@ mod tests {
     /// it: a recorder renames its own over a record at every command.
     #[test]
     fn a_temporary_file_that_has_already_gone_is_nothing_to_remove() {
-        let gone = Path::new("/nonexistent-rex-resurrect-dir/.record.123.tmp");
+        let gone = Path::new("/nonexistent-rexurrect-dir/.record.123.tmp");
         let removed = remove_if_unchanged_since(gone, SystemTime::now());
         assert!(removed.is_ok(), "{}", removed.unwrap_err());
     }

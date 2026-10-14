@@ -92,7 +92,7 @@ fn a_command_restore_typed_carries_forward_while_the_block_sits_at_its_prompt() 
 }
 
 /// The last program seen carries forward in a block restore never touched,
-/// too: rex-resurrect treats every block alike, whether or not it has been
+/// too: rexurrect treats every block alike, whether or not it has been
 /// through a restart.
 #[test]
 fn a_program_seen_in_a_block_without_a_recorder_file_carries_forward_after_it_exits() {
@@ -219,7 +219,7 @@ fn a_save_run_from_a_block_without_a_recorder_file_is_not_its_last_command() {
     let fixture = server.create_session("zz-self", &[window(shell(env.mkdir("a")))]);
     server.wait_for_pwds(&fixture);
     let block = fixture.block_ids()[0];
-    let save = format!("{} save", common::resurrect::bin());
+    let save = format!("{} save", common::rexurrect::bin());
     server.run(&fixture.id, block, &save);
     server.wait_for_capture(&fixture.id, block, "the save's report", |c| {
         c.contains("\nsaved 1 session(s)")

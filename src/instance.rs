@@ -1,7 +1,7 @@
 //! Server instances and the restore lock.
 //!
 //! A server instance is one run of the Rex server, told apart by the
-//! `instance_id` in `server.status`. rex-resurrect remembers the instances it
+//! `instance_id` in `server.status`. rexurrect remembers the instances it
 //! restored into, so it can tell a freshly started server (an unrestored
 //! server instance) from one the user has been working in. It remembers
 //! several, not just the last: another server can restore too (one started
@@ -39,7 +39,7 @@ pub struct RestoreLock {
 }
 
 impl RestoreLock {
-    /// Takes the restore lock, waiting for as long as another rex-resurrect
+    /// Takes the restore lock, waiting for as long as another rexurrect
     /// process holds it. Save and restore both start here, so this is also
     /// where the state directory is created, or made, private.
     pub fn acquire(state: &StateDir) -> Result<RestoreLock> {

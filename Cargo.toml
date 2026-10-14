@@ -1,15 +1,15 @@
 [package]
-name = "rex-resurrect"
+name = "rexurrect"
 version = "0.1.0"
 edition = "2024"
 description = "Save Rex sessions and recreate them after the Rex server stops"
 license = "MIT"
-repository = "https://github.com/cemcatik/rex-resurrect"
+repository = "https://github.com/cemcatik/rexurrect"
 readme = "README.md"
 publish = false
 
 [[bin]]
-name = "rex-resurrect"
+name = "rexurrect"
 path = "src/main.rs"
 
 [dependencies]

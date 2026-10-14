@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rex-resurrect"
+name = "rexurrect"
 version = "0.1.0"
 dependencies = [
  "libc",

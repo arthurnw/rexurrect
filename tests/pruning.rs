@@ -67,7 +67,7 @@ fn a_save_that_fails_to_write_its_snapshot_removes_no_recorder_files() {
     // A file where the snapshots directory goes: writing the snapshot fails.
     std::fs::write(env.state_dir().join("snapshots"), "").unwrap();
 
-    env.resurrect(&server).arg("save").run().assert_failure();
+    env.rexurrect(&server).arg("save").run().assert_failure();
     assert!(recorder_file(&env, &gone_block).exists());
 }
 
@@ -95,7 +95,7 @@ fn a_save_from_an_empty_server_removes_nothing() {
 
 /// A stand-in `rex` that passes every call to the real one and, each time
 /// `session.list` has answered, writes `recorder` as a recorder would for a
-/// block that appeared just then. Put it first on rex-resurrect's `PATH`.
+/// block that appeared just then. Put it first on rexurrect's `PATH`.
 fn stub_rex_recording_after_session_list(env: &TestEnv, recorder: &Path) -> RexStub {
     RexStub::new(env).after(
         "session.list",
@@ -117,7 +117,7 @@ fn a_recorder_file_written_while_a_save_runs_is_kept() {
     let stub = stub_rex_recording_after_session_list(&env, &new_block);
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .path_prepend(stub.dir())
         .arg("save")
         .run()
@@ -128,7 +128,7 @@ fn a_recorder_file_written_while_a_save_runs_is_kept() {
     );
 }
 
-/// Whether rex-resurrect's lineage map mentions `session_id` at all.
+/// Whether rexurrect's lineage map mentions `session_id` at all.
 fn lineage_map_mentions(env: &TestEnv, session_id: &str) -> bool {
     std::fs::read_to_string(env.state_dir().join("lineage.json"))
         .unwrap_or_default()
@@ -172,8 +172,8 @@ fn a_save_removes_temporary_files_left_by_crashed_writes_once_they_are_stale() {
     env.save(&server);
     // A recorder's temporary files (named `.…` by the recorder-file
     // contract; the zsh recorder's are `.<block ID>.<pid>`), and the ones
-    // rex-resurrect writes its own files through (`.<name>.<pid>.tmp`, next
-    // to the file).
+    // rexurrect writes its own files through (`.<name>.<pid>.tmp`, next to
+    // the file).
     let temporary = |name: &str| {
         [
             recorder_file(&env, &format!(".block:zz-{name}.4242")),

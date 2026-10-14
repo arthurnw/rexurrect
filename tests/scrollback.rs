@@ -228,15 +228,15 @@ fn scrollback_is_private_and_kept_only_as_long_as_its_snapshot() {
     let fixture = server.create_session("zz-kept", &[window(shell(env.mkdir("a")))]);
     server.wait_for_pwds(&fixture);
     let block = fixture.block_ids()[0];
-    // Enough scrollback to dwarf everything else rex-resurrect keeps.
+    // Enough scrollback to dwarf everything else rexurrect keeps.
     server.run(&fixture.id, block, "seq 1 20000");
     server.wait_for_capture(&fixture.id, block, "the whole sequence", |c| {
         c.contains("\n20000\n")
     });
     let save = || {
-        env.resurrect(&server)
+        env.rexurrect(&server)
             .arg("save")
-            .env("REX_RESURRECT_KEEP", "2")
+            .env("REXURRECT_KEEP", "2")
             .run()
             .assert_success();
     };
@@ -267,8 +267,8 @@ fn scrollback_is_private_and_kept_only_as_long_as_its_snapshot() {
 
 #[test]
 fn an_untouched_sessions_scrollback_is_not_kept() {
-    // No recorder, and rex-resurrect's home is the untouched session's
-    // directory: after `seq` it has no last command and is still at home.
+    // No recorder, and rexurrect's home is the untouched session's directory:
+    // after `seq` it has no last command and is still at home.
     let env = TestEnv::new();
     let server = env.start_server();
     let home = env.mkdir("home");
@@ -283,7 +283,7 @@ fn an_untouched_sessions_scrollback_is_not_kept() {
     });
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .env("HOME", &home)
         .arg("save")
         .run()
@@ -428,8 +428,8 @@ fn the_programs_whose_blocks_get_no_scrollback_replay_can_be_set() {
     print_then_run(&server, &fixture.id, unlisted, "zz-unlisted", "claude 300");
 
     // The list replaces the default (`claude`).
-    env.resurrect(&server)
-        .env("REX_RESURRECT_NO_SCROLLBACK", "vim dev-server")
+    env.rexurrect(&server)
+        .env("REXURRECT_NO_SCROLLBACK", "vim dev-server")
         .arg("save")
         .run()
         .assert_success();

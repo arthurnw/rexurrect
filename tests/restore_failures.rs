@@ -22,7 +22,7 @@ fn a_session_that_fails_to_restore_does_not_stop_the_others_and_restore_exits_no
     // The new server refuses a second window in any session, so zz-wide
     // can't be recreated.
     let after = env.server().arg("--max-windows").arg("1").start();
-    let out = env.resurrect(&after).arg("restore").run().assert_failure();
+    let out = env.rexurrect(&after).arg("restore").run().assert_failure();
 
     let created = out.lines_starting("created");
     let failed = out.lines_starting("failed");
@@ -59,7 +59,7 @@ fn a_session_whose_new_blocks_cant_be_matched_to_its_saved_ones_fails_alone_and_
         r#"s/"block_ids":\[[^]]*\]/"block_ids":[]/g"#,
     );
     let out = env
-        .resurrect(&after)
+        .rexurrect(&after)
         .arg("restore")
         .path_prepend(stub.dir())
         .run()

@@ -1,5 +1,5 @@
 //! Facts about other processes on this machine, from `ps`, and the one
-//! thing rex-resurrect changes about its own.
+//! thing rexurrect changes about its own.
 
 use std::path::PathBuf;
 use std::process::{Command, Stdio};

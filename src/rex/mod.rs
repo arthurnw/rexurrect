@@ -1,4 +1,4 @@
-//! The only way rex-resurrect talks to Rex: the `rex` CLI's `api call`.
+//! The only way rexurrect talks to Rex: the `rex` CLI's `api call`.
 //!
 //! Every call is `rex [-S <endpoint>] --autostart=false api call METHOD -`
 //! with the arguments as JSON on stdin and the result as JSON on stdout.
@@ -99,7 +99,7 @@ pub enum RexError {
         status: Option<i32>,
         message: String,
     },
-    /// `rex` succeeded but its output isn't the shape rex-resurrect expects.
+    /// `rex` succeeded but its output isn't the shape rexurrect expects.
     UnexpectedOutput { method: String, detail: String },
 }
 

@@ -1,4 +1,4 @@
-//! rex-resurrect never starts a Rex server as a side effect.
+//! rexurrect never starts a Rex server as a side effect.
 
 mod common;
 
@@ -22,7 +22,7 @@ fn save_and_restore_fail_without_starting_a_server_when_none_is_running() {
 
     for command in ["save", "restore"] {
         let out = env
-            .resurrect_at(&endpoint)
+            .rexurrect_at(&endpoint)
             .arg(command)
             .env("HOME", &home)
             .run();
@@ -30,7 +30,7 @@ fn save_and_restore_fail_without_starting_a_server_when_none_is_running() {
             let _ = std::process::Command::new("kill")
                 .arg(pid.to_string())
                 .status();
-            panic!("`rex-resurrect {command}` started a Rex server (pid {pid}) at {endpoint}");
+            panic!("`rexurrect {command}` started a Rex server (pid {pid}) at {endpoint}");
         }
         let out = out.assert_failure();
         assert!(out.stderr.contains("autostart is disabled"), "{out}");

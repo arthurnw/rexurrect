@@ -37,7 +37,7 @@ pub trait Scheduler {
     fn uninstall(&self) -> Result<bool>;
 }
 
-/// The scheduler for the platform rex-resurrect runs on.
+/// The scheduler for the platform rexurrect runs on.
 pub fn for_this_platform() -> Result<Box<dyn Scheduler>> {
     Ok(Box::new(launchd::Launchd::from_env()?))
 }

@@ -336,7 +336,7 @@ impl Capture<'_> {
 
     /// A block's last command, read as it is: what its recorder recorded,
     /// including a record that it has none, beats everything. Without one,
-    /// the program in its foreground (not rex-resurrect itself), which also
+    /// the program in its foreground (not rexurrect itself), which also
     /// becomes the block's default last command, so it carries forward once
     /// the program exits. Otherwise the block's default: the last program
     /// seen there, else what restore typed there. Else none.

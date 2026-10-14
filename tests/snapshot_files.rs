@@ -10,12 +10,12 @@ use std::os::unix::fs::PermissionsExt;
 use common::files::accessible_to_others;
 use common::*;
 
-const KEEP_VAR: &str = "REX_RESURRECT_KEEP";
+const KEEP_VAR: &str = "REXURRECT_KEEP";
 
-/// The snapshots `rex-resurrect list` shows, newest first, each as its
-/// session labels (`zz-1, zz-2`).
+/// The snapshots `rexurrect list` shows, newest first, each as its session
+/// labels (`zz-1, zz-2`).
 fn listed_labels(env: &TestEnv, server: &Server) -> Vec<String> {
-    let out = env.resurrect(server).arg("list").run().assert_success();
+    let out = env.rexurrect(server).arg("list").run().assert_success();
     out.stdout
         .lines()
         .filter(|line| *line != "no snapshots yet")
@@ -68,7 +68,7 @@ fn only_the_newest_snapshots_are_kept_and_latest_is_the_newest() {
     for label in ["zz-1", "zz-2", "zz-3"] {
         let fixture = server.create_session(label, &[window(shell(&a))]);
         server.wait_for_pwds(&fixture);
-        env.resurrect(&server)
+        env.rexurrect(&server)
             .arg("save")
             .env(KEEP_VAR, "2")
             .run()
@@ -111,7 +111,7 @@ fn a_keep_count_that_is_not_a_positive_number_fails_save_and_writes_nothing() {
 
     for bad in ["0", "ten", "-1"] {
         let out = env
-            .resurrect(&server)
+            .rexurrect(&server)
             .arg("save")
             .env(KEEP_VAR, bad)
             .run()

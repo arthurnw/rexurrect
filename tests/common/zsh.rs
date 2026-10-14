@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 /// The zsh recorder plugin shipped at the repo root.
 pub fn recorder_plugin() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("rex-resurrect.plugin.zsh")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("rexurrect.plugin.zsh")
 }
 
 /// `path` single-quoted for a zsh command line.
@@ -24,7 +24,7 @@ pub fn quote(path: &Path) -> String {
 /// - an OSC 7 report before each prompt, so the terminal `pwd` method
 ///   answers about 0.2 s after a block starts. Rex doesn't inject shell
 ///   integration itself: without this, `pwd` stays `{}` forever.
-const BASE_ZSHRC: &str = r#"# rex-resurrect test harness: minimal zsh for fixture blocks.
+const BASE_ZSHRC: &str = r#"# rexurrect test harness: minimal zsh for fixture blocks.
 unset HISTFILE
 SAVEHIST=0
 PROMPT='%~ %# '

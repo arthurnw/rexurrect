@@ -1,4 +1,4 @@
-//! When Rex's output doesn't have the shape rex-resurrect expects, or fails
+//! When Rex's output doesn't have the shape rexurrect expects, or fails
 //! validation, `save` fails loudly, names what didn't match and writes
 //! nothing: a changed beta API never produces an empty or broken snapshot.
 //!
@@ -25,7 +25,7 @@ fn server_with_a_saved_split(env: &TestEnv) -> (Server, FixtureSession, Layout) 
 /// Runs `save` with `session.view` answered by `view` instead of the server.
 fn save_with_view(env: &TestEnv, server: &Server, view: &Value) -> RunOutput {
     let stub = RexStub::new(env).answer("session.view", view);
-    env.resurrect(server)
+    env.rexurrect(server)
         .path_prepend(stub.dir())
         .arg("save")
         .run()
@@ -35,7 +35,7 @@ fn save_with_view(env: &TestEnv, server: &Server, view: &Value) -> RunOutput {
 /// `process` instead of the server.
 fn save_with_process(env: &TestEnv, server: &Server, process: &Value) -> RunOutput {
     let stub = RexStub::new(env).answer_when("block.method", r#""method":"process""#, process);
-    env.resurrect(server)
+    env.rexurrect(server)
         .path_prepend(stub.dir())
         .arg("save")
         .run()
@@ -105,7 +105,7 @@ fn a_session_list_in_another_shape_fails_save_instead_of_looking_like_an_empty_s
     let stub = RexStub::new(&env).answer("session.list", &list);
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .path_prepend(stub.dir())
         .arg("save")
         .run()

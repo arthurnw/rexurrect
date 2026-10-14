@@ -44,7 +44,7 @@ use crate::timestamp::Timestamp;
 const DIR: &str = "scrollback";
 
 /// The variable listing the programs whose blocks get no scrollback.
-pub const NO_SCROLLBACK_VAR: &str = "REX_RESURRECT_NO_SCROLLBACK";
+pub const NO_SCROLLBACK_VAR: &str = "REXURRECT_NO_SCROLLBACK";
 
 /// Programs that draw their interface on the main screen, not the alternate
 /// one, and whose blocks therefore get no scrollback: a replay would print a
@@ -56,7 +56,7 @@ pub struct NoScrollbackPrograms {
 }
 
 impl NoScrollbackPrograms {
-    /// `$REX_RESURRECT_NO_SCROLLBACK`: program names separated by spaces.
+    /// `$REXURRECT_NO_SCROLLBACK`: program names separated by spaces.
     /// `claude` if it's unset; none if it's set but empty.
     pub fn from_env() -> Result<NoScrollbackPrograms> {
         let Some(value) = std::env::var_os(NO_SCROLLBACK_VAR) else {
@@ -333,7 +333,7 @@ impl Replay {
             "--norc",
             "-c",
             REPLAY_SCRIPT,
-            "rex-resurrect",
+            "rexurrect",
             &file,
             user,
             LOGIN_SHELL_EXEC,

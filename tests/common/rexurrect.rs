@@ -1,4 +1,4 @@
-//! Running the built `rex-resurrect` binary.
+//! Running the built `rexurrect` binary.
 
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
@@ -9,23 +9,23 @@ use super::env::prepend_path;
 
 /// The binary under test.
 pub fn bin() -> &'static str {
-    env!("CARGO_BIN_EXE_rex-resurrect")
+    env!("CARGO_BIN_EXE_rexurrect")
 }
 
-/// One `rex-resurrect` invocation, with the harness's scrubbed environment:
+/// One `rexurrect` invocation, with the harness's scrubbed environment:
 /// `REX_SERVER` is the target server, the state directory override points at
 /// the test's temp dir, and `REX_BLOCK`/`REX_SESSION` are absent. Get one from
-/// [`super::TestEnv::resurrect`].
+/// [`super::TestEnv::rexurrect`].
 #[must_use]
-pub struct ResurrectCmd {
+pub struct RexurrectCmd {
     args: Vec<OsString>,
     env: BTreeMap<OsString, OsString>,
     path_prepend: Vec<PathBuf>,
 }
 
-impl ResurrectCmd {
+impl RexurrectCmd {
     pub(crate) fn new(env: BTreeMap<OsString, OsString>) -> Self {
-        ResurrectCmd {
+        RexurrectCmd {
             args: Vec::new(),
             env,
             path_prepend: Vec::new(),
@@ -79,15 +79,15 @@ impl ResurrectCmd {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .expect("running rex-resurrect");
+            .expect("running rexurrect");
         Running {
-            command: format!("rex-resurrect {:?}", self.args),
+            command: format!("rexurrect {:?}", self.args),
             child: Some(child),
         }
     }
 }
 
-/// A `rex-resurrect` run that may still be going. [`Running::wait`] for it.
+/// A `rexurrect` run that may still be going. [`Running::wait`] for it.
 /// Dropped without waiting (its test panicked), it kills the run, so the run
 /// can't outlive the test's temp dir and recreate files in it.
 #[must_use]
@@ -99,7 +99,7 @@ pub struct Running {
 impl Running {
     pub fn wait(mut self) -> RunOutput {
         let child = self.child.take().expect("a run is waited for once");
-        let out = child.wait_with_output().expect("waiting for rex-resurrect");
+        let out = child.wait_with_output().expect("waiting for rexurrect");
         RunOutput {
             command: std::mem::take(&mut self.command),
             status: out.status,
@@ -118,7 +118,7 @@ impl Drop for Running {
     }
 }
 
-/// What a `rex-resurrect` run printed and how it exited.
+/// What a `rexurrect` run printed and how it exited.
 #[derive(Debug)]
 pub struct RunOutput {
     pub command: String,

@@ -1,10 +1,10 @@
 //! A block that can't come back exactly as saved still comes back as a shell
 //! block, so one bad block never breaks a session's layout.
 //!
-//! "The home directory" is rex-resurrect's own `HOME`. These tests give
-//! rex-resurrect a home of its own, different from the throwaway server's, so
-//! they can tell rex-resurrect choosing the home directory apart from Rex
-//! falling back to its own home for a `cwd` that doesn't exist.
+//! "The home directory" is rexurrect's own `HOME`. These tests give rexurrect
+//! a home of its own, different from the throwaway server's, so they can tell
+//! rexurrect choosing the home directory apart from Rex falling back to its
+//! own home for a `cwd` that doesn't exist.
 
 mod common;
 
@@ -13,9 +13,9 @@ use std::path::Path;
 use common::*;
 use serde_json::{Value, json};
 
-/// `rex-resurrect <command>` against `server`, with `home` as its home directory.
+/// `rexurrect <command>` against `server`, with `home` as its home directory.
 fn run_with_home(env: &TestEnv, server: &Server, home: &Path, command: &str) -> RunOutput {
-    env.resurrect(server)
+    env.rexurrect(server)
         .env("HOME", home)
         .arg(command)
         .run()
@@ -24,7 +24,7 @@ fn run_with_home(env: &TestEnv, server: &Server, home: &Path, command: &str) -> 
 
 /// A stand-in `rex` that reports one block of a live session as something a
 /// throwaway server can't create (a block that isn't a shell block, a block
-/// on another host). Put it first on rex-resurrect's `PATH`.
+/// on another host). Put it first on rexurrect's `PATH`.
 ///
 /// - `session.view` of that session returns the real view, with `edit`
 ///   applied to the block's entry in its layer's `blocks`;
@@ -185,7 +185,7 @@ fn assert_saved_as_a_plain_shell_in_home(label: &str, edit: impl Fn(&mut Value))
         edit,
     );
 
-    env.resurrect(&server)
+    env.rexurrect(&server)
         .env("HOME", &home)
         .path_prepend(stub.dir())
         .arg("save")

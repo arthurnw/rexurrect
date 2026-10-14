@@ -1,4 +1,4 @@
-//! `rex-resurrect list`: the snapshots `restore` can use, newest first.
+//! `rexurrect list`: the snapshots `restore` can use, newest first.
 
 use std::io::Write;
 use std::process::ExitCode;

@@ -1,4 +1,4 @@
-//! rex-resurrect's log: `rex-resurrect.log` in the state directory.
+//! rexurrect's log: `rexurrect.log` in the state directory.
 //!
 //! `save` and `restore` append their failures here, one timestamped line
 //! each, so a failed autosave, which nobody watches, can still be diagnosed.
@@ -19,7 +19,7 @@ use crate::error::{Context, Result};
 use crate::state::{self, StateDir};
 use crate::timestamp::Timestamp;
 
-const LOG: &str = "rex-resurrect.log";
+const LOG: &str = "rexurrect.log";
 /// The size past which the log keeps only its newest half. While Rex is
 /// quit, every autosave appends a line, so it would otherwise grow forever.
 const MAX_SIZE: u64 = 1 << 20;
@@ -92,7 +92,7 @@ impl Log {
 /// so a broken log never hides the failure itself.
 pub fn log_failure(state: &StateDir, command: &str, failure: &dyn Display) {
     if let Err(e) = Log::new(state).append(&format!("{command} failed: {failure}")) {
-        eprintln!("rex-resurrect: couldn't log a failure: {e}");
+        eprintln!("rexurrect: couldn't log a failure: {e}");
     }
 }
 
@@ -101,6 +101,6 @@ pub fn log_failure(state: &StateDir, command: &str, failure: &dyn Display) {
 /// Best effort, like [`log_failure`].
 pub fn log_fallback(state: &StateDir, command: &str, fallback: &dyn Display) {
     if let Err(e) = Log::new(state).append(&format!("{command} fell back: {fallback}")) {
-        eprintln!("rex-resurrect: couldn't log a fallback: {e}");
+        eprintln!("rexurrect: couldn't log a fallback: {e}");
     }
 }

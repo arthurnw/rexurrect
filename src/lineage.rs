@@ -1,11 +1,11 @@
 //! Lineage (ADR-0001): how restore recognises a saved session that's already
 //! live, without ever comparing labels.
 //!
-//! Rex assigns session IDs itself and allows duplicate labels, so
-//! rex-resurrect keeps its own map, in the state directory, from each live
-//! session restore created to the lineage of the saved session it came from.
-//! A live session missing from the map (one the user or Rex created) starts a
-//! new lineage, identified by its own session ID.
+//! Rex assigns session IDs itself and allows duplicate labels, so rexurrect
+//! keeps its own map, in the state directory, from each live session restore
+//! created to the lineage of the saved session it came from. A live session
+//! missing from the map (one the user or Rex created) starts a new lineage,
+//! identified by its own session ID.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

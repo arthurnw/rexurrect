@@ -1,5 +1,5 @@
-//! rex-resurrect: save Rex sessions and recreate them after the Rex server
-//! stops. Talks to Rex only through the `rex` CLI (see `rex`).
+//! rexurrect: save Rex sessions and recreate them after the Rex server stops.
+//! Talks to Rex only through the `rex` CLI (see `rex`).
 
 mod account;
 mod auto_restore;
@@ -41,7 +41,7 @@ fn main() -> ExitCode {
     let command = match cli::parse(std::env::args_os().skip(1)) {
         Ok(command) => command,
         Err(e) => {
-            eprintln!("rex-resurrect: {e}\nRun `rex-resurrect --help` for usage.");
+            eprintln!("rexurrect: {e}\nRun `rexurrect --help` for usage.");
             return ExitCode::from(2);
         }
     };
@@ -58,12 +58,12 @@ fn main() -> ExitCode {
             Ok(ExitCode::SUCCESS)
         }
         Command::Version => {
-            println!("rex-resurrect {}", env!("CARGO_PKG_VERSION"));
+            println!("rexurrect {}", env!("CARGO_PKG_VERSION"));
             Ok(ExitCode::SUCCESS)
         }
     };
     result.unwrap_or_else(|e| {
-        eprintln!("rex-resurrect: error: {e}");
+        eprintln!("rexurrect: error: {e}");
         ExitCode::FAILURE
     })
 }

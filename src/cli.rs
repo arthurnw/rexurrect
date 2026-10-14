@@ -25,7 +25,7 @@ pub enum Command {
 pub const USAGE: &str = "\
 Save Rex sessions and recreate them after the Rex server stops.
 
-Usage: rex-resurrect <command> [options]
+Usage: rexurrect <command> [options]
 
 Commands:
   save      Save every session on the Rex server to a new snapshot
@@ -34,7 +34,7 @@ Commands:
   autosave install
             Run `save` every 15 minutes in the background (a launchd agent)
   autosave uninstall
-            Stop autosave, and say how to remove the rest of rex-resurrect
+            Stop autosave, and say how to remove the rest of rexurrect
   auto-restore
             For Rex's init.lua: once the server running it is ready, restore
             into it in the background, once per server instance
@@ -61,16 +61,14 @@ Options:
 
 Environment:
   REX_SERVER               The Rex server to talk to (default: rex's own default)
-  REX_RESURRECT_STATE_DIR  Where snapshots and state live (default:
-                           $XDG_STATE_HOME/rex-resurrect, else
-                           ~/.local/state/rex-resurrect)
-  REX_RESURRECT_KEEP       How many snapshots save keeps, newest first
+  REXURRECT_STATE_DIR      Where snapshots and state live (default:
+                           $XDG_STATE_HOME/rexurrect, else
+                           ~/.local/state/rexurrect)
+  REXURRECT_KEEP           How many snapshots save keeps, newest first
                            (default: 10)
-  REX_RESURRECT_NO_SCROLLBACK
-                           Programs, separated by spaces, whose blocks save
+  REXURRECT_NO_SCROLLBACK  Programs, separated by spaces, whose blocks save
                            keeps no scrollback for (default: claude)
-  REX_RESURRECT_READY_TIMEOUT
-                           How long auto-restore waits for the Rex server to
+  REXURRECT_READY_TIMEOUT  How long auto-restore waits for the Rex server to
                            be ready, in seconds (default: 60)
 ";
 

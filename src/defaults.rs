@@ -9,10 +9,10 @@
 //! restore typed there, through any number of restores, until a save sees
 //! a program in it. A block restore types nothing at has no default.
 //!
-//! Kept in rex-resurrect's own state, never in recorder files: those are
-//! the recorders', so a recorder file always means a recorder wrote it, and
-//! rex-resurrect can't race one. Only restore and save touch it, both under
-//! the restore lock. A save that writes a snapshot forgets the blocks that
+//! Kept in rexurrect's own state, never in recorder files: those are the
+//! recorders', so a recorder file always means a recorder wrote it, and
+//! rexurrect can't race one. Only restore and save touch it, both under the
+//! restore lock. A save that writes a snapshot forgets the blocks that
 //! aren't live, as it does their recorder files.
 
 use std::collections::BTreeMap;

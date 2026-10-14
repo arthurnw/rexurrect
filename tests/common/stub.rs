@@ -11,7 +11,7 @@ use super::env::TestEnv;
 use super::server::rex_bin;
 
 /// A directory holding a stub `rex` script. Put it first on one run's
-/// `PATH` with `env.resurrect(&server).path_prepend(stub.dir())`.
+/// `PATH` with `env.rexurrect(&server).path_prepend(stub.dir())`.
 ///
 /// The stub handles the `api call` invocations its rules pick (by method,
 /// and optionally by texts the JSON arguments on stdin all contain) and
@@ -158,8 +158,8 @@ fn matching(method: &str, input_contains: &[&str]) -> Matching {
 fn stub_script(rules: &[Rule], real_rex: &Path) -> String {
     let mut script = format!(
         r#"#!/bin/sh
-# Stub rex (rex-resurrect test harness): rules for chosen `api call`
-# invocations, everything else handed to the real rex.
+# Stub rex (rexurrect test harness): rules for chosen `api call` invocations,
+# everything else handed to the real rex.
 real={real_rex}
 method=
 prev=

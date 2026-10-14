@@ -1,6 +1,6 @@
 //! The snapshot model: what `save` writes and `restore` reads.
 //!
-//! Only rex-resurrect reads this format (tests never look inside), so it can
+//! Only rexurrect reads this format (tests never look inside), so it can
 //! change freely. Optional fields are skipped when empty so that fields added
 //! later don't break older snapshots.
 

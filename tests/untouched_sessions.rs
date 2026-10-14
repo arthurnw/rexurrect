@@ -5,9 +5,9 @@
 //! and block labels, its working directory still home, and no last command.
 //! Its label doesn't count.
 //!
-//! Each test gives its servers and rex-resurrect a home directory of their
-//! own ([`TestEnvBuilder::own_home`]), so "home" is a directory the test
-//! knows and the user's real home is never involved.
+//! Each test gives its servers and rexurrect a home directory of their own
+//! ([`TestEnvBuilder::own_home`]), so "home" is a directory the test knows
+//! and the user's real home is never involved.
 
 mod common;
 

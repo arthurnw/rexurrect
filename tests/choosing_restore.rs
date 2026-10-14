@@ -5,7 +5,7 @@ mod common;
 
 use common::*;
 
-/// One line of `rex-resurrect list`.
+/// One line of `rexurrect list`.
 #[derive(Debug)]
 struct Listed {
     id: String,
@@ -13,9 +13,9 @@ struct Listed {
     labels: Vec<String>,
 }
 
-/// Runs `rex-resurrect list` and parses its lines: `<id>  <time>  <labels>`.
+/// Runs `rexurrect list` and parses its lines: `<id>  <time>  <labels>`.
 fn list(env: &TestEnv, server: &Server) -> Vec<Listed> {
-    let out = env.resurrect(server).arg("list").run().assert_success();
+    let out = env.rexurrect(server).arg("list").run().assert_success();
     out.stdout
         .lines()
         .map(|line| {
@@ -82,7 +82,7 @@ fn list_before_the_first_save_says_there_are_no_snapshots_without_needing_rex() 
     let nowhere = format!("unix://{}/none.sock", env.root().display());
 
     let out = env
-        .resurrect_at(&nowhere)
+        .rexurrect_at(&nowhere)
         .arg("list")
         .run()
         .assert_success();
@@ -105,7 +105,7 @@ fn restore_can_use_an_older_snapshot_chosen_from_list() {
     let older = &list(&env, &server)[1];
     assert_eq!(older.labels, ["zz-gone", "zz-kept"], "{older:?}");
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .args(["restore", "--snapshot", &older.id])
         .run()
         .assert_success();
@@ -123,7 +123,7 @@ fn restore_from_a_snapshot_that_does_not_exist_fails_and_creates_nothing() {
     server.kill_session(&proj.id);
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .args(["restore", "--snapshot", "20000101T000000.000000Z"])
         .run()
         .assert_failure();
@@ -153,7 +153,7 @@ fn restoring_an_older_snapshot_skips_saved_sessions_whose_lineage_is_live() {
     env.save(&server);
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .args(["restore", "--snapshot", &older])
         .run()
         .assert_success();
@@ -183,7 +183,7 @@ fn a_single_session_restore_creates_only_the_saved_sessions_with_that_label() {
     }
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .args(["restore", "--session", "zz-twin"])
         .run()
         .assert_success();
@@ -214,7 +214,7 @@ fn a_single_session_restore_of_a_label_not_in_the_snapshot_fails_and_creates_not
     server.kill_session(&proj.id);
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .args(["restore", "--session", "zz-missing"])
         .run()
         .assert_failure();
@@ -247,7 +247,7 @@ fn a_dry_run_prints_what_would_be_created_and_skipped_and_creates_nothing() {
     let before = server.sessions();
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .args(["restore", "--dry-run"])
         .run()
         .assert_success();
@@ -281,7 +281,7 @@ fn the_options_combine_into_a_dry_run_of_one_session_from_an_older_snapshot() {
     server.kill_session(&one.id);
     env.save(&server); // The latest snapshot holds only zz-two.
     let before = server.sessions();
-    let restore = |args: &[&str]| env.resurrect(&server).arg("restore").args(args).run();
+    let restore = |args: &[&str]| env.rexurrect(&server).arg("restore").args(args).run();
 
     restore(&["--session", "zz-one", "--dry-run"]).assert_failure();
     let dry = restore(&["--snapshot", &older, "--session", "zz-one", "--dry-run"]).assert_success();

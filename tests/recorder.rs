@@ -100,7 +100,7 @@ fn after_exec_zsh_the_outermost_shell_still_records() {
 /// `$ZSH_CUSTOM/plugins/<name>/<name>.plugin.zsh`, add its directory to
 /// `fpath`, then source that file from inside a function with locals.
 const OMZ_LIKE_LOADER: &str = r#"ZSH_CUSTOM=${ZDOTDIR:h}/omz-custom
-plugins=(rex-resurrect)
+plugins=(rexurrect)
 for plugin ($plugins); do
   [[ -f $ZSH_CUSTOM/plugins/$plugin/$plugin.plugin.zsh ]] && fpath=($ZSH_CUSTOM/plugins/$plugin $fpath)
 done
@@ -117,11 +117,11 @@ unset plugin"#;
 #[test]
 fn the_recorder_loads_as_an_oh_my_zsh_custom_plugin() {
     let env = TestEnv::builder().zshrc_line(OMZ_LIKE_LOADER).build();
-    let plugin_dir = env.root().join("omz-custom/plugins/rex-resurrect");
+    let plugin_dir = env.root().join("omz-custom/plugins/rexurrect");
     std::fs::create_dir_all(&plugin_dir).unwrap();
     std::fs::copy(
         common::zsh::recorder_plugin(),
-        plugin_dir.join("rex-resurrect.plugin.zsh"),
+        plugin_dir.join("rexurrect.plugin.zsh"),
     )
     .unwrap();
     let server = env.start_server();
@@ -161,10 +161,10 @@ fn an_ignored_command_leaves_the_previous_last_command_in_place() {
 }
 
 /// An ignore list entry matches the command as typed or the last part of
-/// its path, and rex-resurrect is on the list by default: running it is
-/// never what a block was doing.
+/// its path, and rexurrect is on the list by default: running it is never
+/// what a block was doing.
 #[test]
-fn rex_resurrect_and_ignored_commands_run_by_path_leave_the_previous_last_command_in_place() {
+fn rexurrect_and_ignored_commands_run_by_path_leave_the_previous_last_command_in_place() {
     let env = TestEnv::with_recorder();
     let server = env.start_server();
     let a = env.mkdir("a");
@@ -179,9 +179,9 @@ fn rex_resurrect_and_ignored_commands_run_by_path_leave_the_previous_last_comman
     server.run(
         &fixture.id,
         block,
-        &format!("{} list", common::resurrect::bin()),
+        &format!("{} list", common::rexurrect::bin()),
     );
-    server.wait_for_capture(&fixture.id, block, "rex-resurrect's list", |c| {
+    server.wait_for_capture(&fixture.id, block, "rexurrect's list", |c| {
         c.contains("\nno snapshots yet")
     });
     server.run(&fixture.id, block, "/bin/ls");
@@ -237,7 +237,7 @@ fn users_can_extend_the_ignore_list_from_their_zsh_config() {
     let plugin = common::zsh::quote(&common::zsh::recorder_plugin());
     let env = TestEnv::builder()
         .zshrc_line(format!("source {plugin}"))
-        .zshrc_line("REX_RESURRECT_IGNORE+=(echo)")
+        .zshrc_line("REXURRECT_IGNORE+=(echo)")
         .build();
     let server = env.start_server();
     let touch = format!("touch {}", env.root().join("zz-touched").display());
@@ -256,7 +256,7 @@ fn users_can_extend_the_ignore_list_from_their_zsh_config() {
 fn users_can_replace_the_ignore_list_from_their_zsh_config() {
     let plugin = common::zsh::quote(&common::zsh::recorder_plugin());
     let env = TestEnv::builder()
-        .zshrc_line("REX_RESURRECT_IGNORE=(echo)")
+        .zshrc_line("REXURRECT_IGNORE=(echo)")
         .zshrc_line(format!("source {plugin}"))
         .build();
     let server = env.start_server();

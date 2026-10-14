@@ -1,10 +1,10 @@
 //! Recorder files: each block's last command, as recorded by the shell
-//! recorder (`rex-resurrect.plugin.zsh` at the repo root). They belong to
-//! recorders: rex-resurrect reads them and removes those of blocks that
-//! aren't live, but never writes one, so a recorder file always means a
-//! recorder wrote it, and save can't race a recorder. What rex-resurrect
-//! knows about a block besides (what restore typed there, the last program a
-//! save saw in it) lives in its own state (see `defaults`).
+//! recorder (`rexurrect.plugin.zsh` at the repo root). They belong to
+//! recorders: rexurrect reads them and removes those of blocks that aren't
+//! live, but never writes one, so a recorder file always means a recorder
+//! wrote it, and save can't race a recorder. What rexurrect knows about a
+//! block besides (what restore typed there, the last program a save saw in
+//! it) lives in its own state (see `defaults`).
 //!
 //! The format is shared by every recorder, whatever its shell:
 //! - one file per block, `recorder/<block ID>` in the state directory, named
@@ -16,9 +16,9 @@
 //!   command**, as firmly as a command: save then neither falls back to the
 //!   program in its foreground nor uses its default. The zsh recorder never
 //!   writes one (it only records commands), but a recorder may. Restores by
-//!   earlier versions of rex-resurrect wrote them too, and recorder files
-//!   holding commands, for the blocks they created: these still count as
-//!   recorders' records;
+//!   earlier versions of rexurrect wrote them too, and recorder files holding
+//!   commands, for the blocks they created: these still count as recorders'
+//!   records;
 //! - written to a temporary file whose name starts with `.` in the same
 //!   directory, then renamed over the record. Such a file left unchanged
 //!   for over an hour counts as left behind by a recorder that crashed, and

@@ -14,7 +14,7 @@ use crate::snapshot::{SavedBlock, SavedLayout, SavedSession, SavedWindow};
 /// exists, with its last command typed at its prompt if it can be typed
 /// ([`typed_command`]), and its scrollback printed above that prompt if
 /// `replay` can print it. Rex would quietly start the shell in its own home
-/// anyway, but rex-resurrect doesn't rely on that.
+/// anyway, but rexurrect doesn't rely on that.
 pub fn as_created(saved: &SavedSession, home: &Path, replay: &Replay) -> SavedSession {
     let mut created = saved.clone();
     for block in created.blocks_mut() {

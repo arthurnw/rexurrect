@@ -1,10 +1,10 @@
-# rex-resurrect
+# rexurrect
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues live in GitHub Issues for `cemcatik/rex-resurrect`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues for `cemcatik/rexurrect`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

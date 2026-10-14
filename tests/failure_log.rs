@@ -42,11 +42,11 @@ fn each_failed_save_or_restore_appends_a_timestamped_entry() {
         server.endpoint().to_string()
     }; // The server stops: nothing answers at its endpoint any more.
 
-    env.resurrect_at(&endpoint)
+    env.rexurrect_at(&endpoint)
         .arg("save")
         .run()
         .assert_failure();
-    env.resurrect_at(&endpoint)
+    env.rexurrect_at(&endpoint)
         .arg("restore")
         .run()
         .assert_failure();
@@ -69,7 +69,7 @@ fn a_save_rejected_for_unexpected_rex_output_is_logged() {
     let server = env.start_server();
     let stub = RexStub::new(&env).answer("session.list", &json!({ "sessionz": [] }));
 
-    env.resurrect(&server)
+    env.rexurrect(&server)
         .arg("save")
         .path_prepend(stub.dir())
         .run()
@@ -96,7 +96,7 @@ fn each_session_that_fails_to_restore_is_logged() {
 
     // The new server refuses a second window, so zz-wide can't be recreated.
     let after = env.server().arg("--max-windows").arg("1").start();
-    env.resurrect(&after).arg("restore").run().assert_failure();
+    env.rexurrect(&after).arg("restore").run().assert_failure();
 
     let entries = env.log_entries();
     assert_eq!(entries.len(), 1, "{entries:#?}");
@@ -122,7 +122,7 @@ fn a_session_that_fails_to_restore_when_save_restores_first_is_logged() {
     // (A restore in which every session fails is covered in
     // tests/unrestored_instance.rs.)
     let after = env.server().arg("--max-windows").arg("1").start();
-    env.resurrect(&after).arg("save").run().assert_failure();
+    env.rexurrect(&after).arg("save").run().assert_failure();
 
     let entries = env.log_entries();
     assert_eq!(entries.len(), 1, "{entries:#?}");
@@ -142,7 +142,7 @@ fn the_log_keeps_only_its_newest_entries_once_it_passes_a_megabyte() {
         server.endpoint().to_string()
     }; // Rex quits.
     // A log that has been growing for a long time.
-    let log = env.state_dir().join("rex-resurrect.log");
+    let log = env.state_dir().join("rexurrect.log");
     let filler = "x".repeat(40);
     let old: String = (0..20_000)
         .map(|i| format!("2026-01-01T00:00:00.000000Z save failed: zz-old-{i:05} {filler}\n"))
@@ -151,7 +151,7 @@ fn the_log_keeps_only_its_newest_entries_once_it_passes_a_megabyte() {
     std::fs::write(&log, &old).unwrap();
     std::fs::set_permissions(&log, std::fs::Permissions::from_mode(0o600)).unwrap();
 
-    env.resurrect_at(&endpoint)
+    env.rexurrect_at(&endpoint)
         .arg("save")
         .run()
         .assert_failure();

@@ -99,7 +99,7 @@ fn a_save_that_restores_first_reads_the_server_status_once() {
     );
 
     let out = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .arg("save")
         .path_prepend(stub.dir())
         .run()
@@ -153,7 +153,7 @@ fn kill_restored_sessions_and_save_again(command: &str) -> Server {
     let env = TestEnv::new();
     env.saved_on_an_earlier_server(&["zz-proj"]);
     let after = env.start_server();
-    env.resurrect(&after).arg(command).run().assert_success();
+    env.rexurrect(&after).arg(command).run().assert_success();
     let restored = after.session_ids_labelled("zz-proj");
     assert_eq!(restored.len(), 1, "`{command}` restored zz-proj");
 
@@ -180,7 +180,7 @@ fn restore_with_then_save(args: &[&str]) -> Server {
     let env = TestEnv::new();
     env.saved_on_an_earlier_server(&["zz-one", "zz-two"]);
     let server = env.start_server();
-    env.resurrect(&server)
+    env.rexurrect(&server)
         .arg("restore")
         .args(args)
         .run()
@@ -213,12 +213,12 @@ fn restoring_a_whole_older_snapshot_counts_as_restoring_the_instance() {
         }
     }
     let server = env.start_server();
-    let listed = env.resurrect(&server).arg("list").run().assert_success();
+    let listed = env.rexurrect(&server).arg("list").run().assert_success();
     // Newest first: the last line is the snapshot holding only zz-old.
     let oldest = listed.stdout.lines().last().unwrap();
     let id = oldest.split("  ").next().unwrap();
 
-    env.resurrect(&server)
+    env.rexurrect(&server)
         .args(["restore", "--snapshot", id])
         .run()
         .assert_success();
@@ -256,9 +256,9 @@ fn a_save_whose_restore_first_fails_for_every_session_saves_nothing_and_the_next
     let server = a_server_that_cant_restore_anything(&env);
     let snapshots = env.listed(&server);
     let id = snapshots.split("  ").next().unwrap().to_string();
-    let retry = format!("rex-resurrect restore --snapshot {id}");
+    let retry = format!("rexurrect restore --snapshot {id}");
 
-    let out = env.resurrect(&server).arg("save").run().assert_failure();
+    let out = env.rexurrect(&server).arg("save").run().assert_failure();
     assert!(out.stdout.contains("restored first"), "{out}");
     assert!(out.stderr.contains(&retry), "{out}");
     assert_eq!(env.listed(&server), snapshots, "no new snapshot: {out}");
@@ -279,7 +279,7 @@ fn a_save_whose_restore_first_fails_for_every_session_saves_nothing_and_the_next
     env.restore(&third);
     assert_eq!(third.sorted_labels(), ["zz-early"]);
     // The snapshot that failed to restore is still there to retry.
-    env.resurrect(&third)
+    env.rexurrect(&third)
         .args(["restore", "--snapshot", &id])
         .run()
         .assert_success();
@@ -291,9 +291,9 @@ fn a_restore_in_which_every_session_failed_does_not_count_as_restoring_the_insta
     let env = TestEnv::new();
     let server = a_server_that_cant_restore_anything(&env);
     let snapshots = env.listed(&server);
-    env.resurrect(&server).arg("restore").run().assert_failure();
+    env.rexurrect(&server).arg("restore").run().assert_failure();
 
-    let out = env.resurrect(&server).arg("save").run().assert_failure();
+    let out = env.rexurrect(&server).arg("save").run().assert_failure();
     assert!(out.stdout.contains("restored first"), "{out}");
     assert_eq!(env.listed(&server), snapshots, "no new snapshot: {out}");
 }
@@ -308,7 +308,7 @@ fn two_restores_started_at_once_create_no_duplicates() {
     // live sessions long before either creates one.
     let slow = slow_rex(&env, "session.create", 0.3);
     let restore = || {
-        env.resurrect(&server)
+        env.rexurrect(&server)
             .arg("restore")
             .path_prepend(&slow)
             .spawn()
@@ -345,7 +345,7 @@ fn a_save_that_starts_during_a_restore_waits_for_it_instead_of_saving_a_partial_
 
     let slow = slow_rex(&env, "session.create", 0.5);
     let restore = env
-        .resurrect(&server)
+        .rexurrect(&server)
         .arg("restore")
         .path_prepend(&slow)
         .spawn();

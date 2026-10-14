@@ -2,12 +2,11 @@
 //! into the user's GUI domain with `launchctl`.
 //!
 //! For testing:
-//! - `launchctl` is found on `PATH`, and `$REX_RESURRECT_LAUNCH_AGENTS_DIR`
+//! - `launchctl` is found on `PATH`, and `$REXURRECT_LAUNCH_AGENTS_DIR`
 //!   replaces `~/Library/LaunchAgents`, so tests can install and uninstall
 //!   with a stand-in `launchctl` and never touch the real launchd;
-//! - `$REX_RESURRECT_AUTOSAVE_LABEL` replaces the agent's label, so a
-//!   scratch agent tried out on the real launchd stays apart from the
-//!   user's own.
+//! - `$REXURRECT_AUTOSAVE_LABEL` replaces the agent's label, so a scratch
+//!   agent tried out on the real launchd stays apart from the user's own.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,9 +19,9 @@ use crate::settings;
 use crate::state;
 
 /// The autosave agent's label: its name in launchd and its plist's file name.
-const LABEL: &str = "io.github.cemcatik.rex-resurrect.autosave";
-const AGENTS_DIR_VAR: &str = "REX_RESURRECT_LAUNCH_AGENTS_DIR";
-const LABEL_VAR: &str = "REX_RESURRECT_AUTOSAVE_LABEL";
+const LABEL: &str = "io.github.cemcatik.rexurrect.autosave";
+const AGENTS_DIR_VAR: &str = "REXURRECT_LAUNCH_AGENTS_DIR";
+const LABEL_VAR: &str = "REXURRECT_AUTOSAVE_LABEL";
 
 #[derive(Debug)]
 pub struct Launchd {

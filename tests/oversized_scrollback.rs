@@ -61,7 +61,7 @@ fn a_block_whose_scrollback_is_too_large_for_rex_is_saved_without_it() {
     );
 
     let stub = RexStub::new(&env).fail_when_all("block.method", &[oversized, FORMAT], 1, TOO_LARGE);
-    env.resurrect(&server)
+    env.rexurrect(&server)
         .path_prepend(stub.dir())
         .arg("save")
         .run()
@@ -134,7 +134,7 @@ fn a_block_whose_scrollback_is_refused_on_the_second_read_is_saved_without_it() 
     let unwrapped = r#""unwrap":true"#;
     let stub =
         RexStub::new(&env).fail_when_all("block.method", &[block, FORMAT, unwrapped], 1, TOO_LARGE);
-    env.resurrect(&server)
+    env.rexurrect(&server)
         .path_prepend(stub.dir())
         .arg("save")
         .run()
@@ -173,7 +173,7 @@ fn any_other_failure_to_read_a_blocks_scrollback_still_fails_the_save() {
     for failure in failures {
         let stub = RexStub::new(&env).fail_when_all("block.method", &[block, FORMAT], 1, failure);
         let run = env
-            .resurrect(&server)
+            .rexurrect(&server)
             .path_prepend(stub.dir())
             .arg("save")
             .run()
@@ -203,7 +203,7 @@ fn a_save_that_fails_after_a_block_fell_back_logs_only_its_failure() {
     std::fs::write(env.state_dir().join("snapshots"), "").unwrap();
 
     let stub = RexStub::new(&env).fail_when_all("block.method", &[block, FORMAT], 1, TOO_LARGE);
-    env.resurrect(&server)
+    env.rexurrect(&server)
         .path_prepend(stub.dir())
         .arg("save")
         .run()
@@ -227,7 +227,7 @@ fn a_block_whose_scrollback_stays_too_large_is_logged_once() {
     let block = fixture.block_ids()[0];
     let stub = RexStub::new(&env).fail_when_all("block.method", &[block, FORMAT], 1, TOO_LARGE);
     let save_too_large = || {
-        env.resurrect(&server)
+        env.rexurrect(&server)
             .path_prepend(stub.dir())
             .arg("save")
             .run()

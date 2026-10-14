@@ -90,7 +90,7 @@ fn a_save_in_the_startup_window_saves_a_session_whose_blocks_restore_couldnt_mat
             "zz-proj",
             r#"s/"block_ids":\[[^]]*\]/"block_ids":[]/g"#,
         );
-        env.resurrect(&server)
+        env.rexurrect(&server)
             .arg("restore")
             .path_prepend(stub.dir())
             .run()
@@ -114,9 +114,9 @@ fn saves_keeping_one_snapshot_keep_the_scrollback_a_restore_in_its_startup_windo
         env.restore(&server);
         wait_for_slow_startup(&server);
         for _ in 0..2 {
-            env.resurrect(&server)
+            env.rexurrect(&server)
                 .arg("save")
-                .env("REX_RESURRECT_KEEP", "1")
+                .env("REXURRECT_KEEP", "1")
                 .run()
                 .assert_success();
         }

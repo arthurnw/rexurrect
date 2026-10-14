@@ -1,13 +1,13 @@
-//! The Rex API shapes rex-resurrect reads and sends, as verified against
+//! The Rex API shapes rexurrect reads and sends, as verified against
 //! Rex 0.0.1791570264-g7b5bf3.
 //!
-//! Parsing is strict about what rex-resurrect relies on (a changed shape is an
+//! Parsing is strict about what rexurrect relies on (a changed shape is an
 //! error, not an empty snapshot) and lenient about the rest: unknown keys are
 //! ignored, and keys Rex omits instead of sending `false`/`null` (`windows`
 //! on an empty session, `layout` on a tiled layer whose blocks all floated
 //! away) default.
 //!
-//! The model covers only the fields rex-resurrect reads.
+//! The model covers only the fields rexurrect reads.
 
 use std::path::{Path, PathBuf};
 

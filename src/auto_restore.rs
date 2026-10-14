@@ -1,4 +1,4 @@
-//! `rex-resurrect auto-restore`: what the line in Rex's init.lua runs.
+//! `rexurrect auto-restore`: what the line in Rex's init.lua runs.
 //!
 //! The Rex server runs init.lua in its own process at every start, and
 //! answers no request until init.lua returns. It runs init.lua again on every
@@ -7,7 +7,7 @@
 //! aimed at that server (`--server-pid`), and returns.
 //!
 //! The background run waits for the server to be ready, then restores into
-//! it unless rex-resurrect already has: once per server instance, so a config
+//! it unless rexurrect already has: once per server instance, so a config
 //! reload restores nothing. It logs the outcome either way, since nobody
 //! sees its output.
 //!
@@ -44,7 +44,7 @@ pub struct AutoRestoreOptions {
 }
 
 /// How long the background run waits for the server to be ready, in seconds.
-const READY_TIMEOUT_VAR: &str = "REX_RESURRECT_READY_TIMEOUT";
+const READY_TIMEOUT_VAR: &str = "REXURRECT_READY_TIMEOUT";
 const DEFAULT_READY_TIMEOUT: Duration = Duration::from_secs(60);
 /// How long one readiness check waits for the server to answer. A server
 /// still running init.lua accepts the connection and answers nothing.
@@ -64,15 +64,15 @@ pub fn run(options: &AutoRestoreOptions) -> Result<ExitCode> {
 }
 
 /// The line that turns auto-restore on in init.lua:
-/// `os.execute([[REX_RESURRECT_STATE_DIR='<state dir>' '<rex-resurrect>' auto-restore]])`.
+/// `os.execute([[REXURRECT_STATE_DIR='<state dir>' '<rexurrect>' auto-restore]])`.
 ///
 /// Both are pinned as they are here. The server runs init.lua in its own
 /// environment, not the user's shell's: the Rex app starts it with a bare
-/// `PATH`, so `rex-resurrect` needs its full path, and with no `XDG_*`, so
+/// `PATH`, so `rexurrect` needs its full path, and with no `XDG_*`, so
 /// auto-restore could otherwise pick a different state directory from the
 /// user's shells and their recorder.
 fn hook() -> Result<String> {
-    let program = std::env::current_exe().with_context(|| "finding rex-resurrect's own path")?;
+    let program = std::env::current_exe().with_context(|| "finding rexurrect's own path")?;
     let state = StateDir::from_env()?;
     let command = format!(
         "{STATE_DIR_VAR}={} {} auto-restore",
@@ -110,7 +110,7 @@ fn start_in_background() -> Result<ExitCode> {
         Starter::Server(server) => server,
         Starter::OtherRex { command } => {
             eprintln!(
-                "rex-resurrect auto-restore: started by `{command}`, not by a Rex server, \
+                "rexurrect auto-restore: started by `{command}`, not by a Rex server, \
                  so there's no server to restore into"
             );
             return Ok(ExitCode::SUCCESS);
@@ -118,11 +118,11 @@ fn start_in_background() -> Result<ExitCode> {
         Starter::NotRex => {
             return Err(Error::new(
                 "auto-restore restores into the Rex server whose init.lua runs it, and no Rex \
-                 server started it; to restore by hand, run `rex-resurrect restore`",
+                 server started it; to restore by hand, run `rexurrect restore`",
             ));
         }
     };
-    let program = std::env::current_exe().with_context(|| "finding rex-resurrect's own path")?;
+    let program = std::env::current_exe().with_context(|| "finding rexurrect's own path")?;
     process::stop_passing_on_open_files();
     Command::new(program)
         .args(["auto-restore", "--server-pid", &server.pid.to_string()])
@@ -224,7 +224,7 @@ fn wait_until_ready(server: &ServerProcess, timeout: Duration) -> Result<Ready> 
     }
 }
 
-/// `REX_RESURRECT_READY_TIMEOUT`, or the default of a minute.
+/// `REXURRECT_READY_TIMEOUT`, or the default of a minute.
 fn ready_timeout() -> Result<Duration> {
     let Some(value) = settings::env_non_empty(READY_TIMEOUT_VAR) else {
         return Ok(DEFAULT_READY_TIMEOUT);
