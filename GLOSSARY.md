@@ -68,7 +68,7 @@ A server with no live sessions worth saving: none at all, or only untouched ones
 A session with nothing worth restoring: one window holding one shell block, default window and block labels, its working directory still home, and no last command. Its label doesn't count, so a session that was only renamed is still untouched. Untouched sessions aren't saved.
 
 **Scrollback**:
-A shell block's earlier output, saved with a snapshot and printed back above the block's new prompt when it's restored. A block that was showing a full-screen program (on the terminal's alternate screen), or running a program that draws its interface on the main screen (`claude`, by default), has none saved.
+A shell block's earlier output, saved with a snapshot and printed back above the block's new prompt when it's restored. Three kinds of block have none saved: one showing a full-screen program (on the terminal's alternate screen), one running a program that draws its interface on the main screen (`claude`, by default), and one whose scrollback is too large for Rex to hand over (larger than Rex's limit on one response).
 _Avoid_: history (that's the shell's command history), pane contents
 
 **Autosave**:

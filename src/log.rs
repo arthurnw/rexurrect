@@ -2,8 +2,12 @@
 //!
 //! `save` and `restore` append their failures here, one timestamped line
 //! each, so a failed autosave, which nobody watches, can still be diagnosed.
-//! Successful runs write nothing, except auto-restore, which nobody watches
-//! either and logs every outcome.
+//! Successful runs write nothing, with two exceptions:
+//! - auto-restore, which nobody watches either, logs every outcome;
+//! - save logs each block it starts saving without scrollback because Rex
+//!   refused to hand it over as too large: the save succeeds, but that
+//!   block's scrollback is lost. Once per block, not at every save while it
+//!   stays too large (see `too_large`).
 
 use std::fmt::Display;
 use std::fs::OpenOptions;
@@ -89,5 +93,14 @@ impl Log {
 pub fn log_failure(state: &StateDir, command: &str, failure: &dyn Display) {
     if let Err(e) = Log::new(state).append(&format!("{command} failed: {failure}")) {
         eprintln!("rex-resurrect: couldn't log a failure: {e}");
+    }
+}
+
+/// Appends "`<command>` fell back: `<fallback>`" to the log in `state`:
+/// something `command` couldn't do, which it worked around without failing.
+/// Best effort, like [`log_failure`].
+pub fn log_fallback(state: &StateDir, command: &str, fallback: &dyn Display) {
+    if let Err(e) = Log::new(state).append(&format!("{command} fell back: {fallback}")) {
+        eprintln!("rex-resurrect: couldn't log a fallback: {e}");
     }
 }

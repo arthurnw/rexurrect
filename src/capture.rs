@@ -1,5 +1,6 @@
 //! Turning a live session (its `session.view`) into a saved session.
 
+use std::fmt;
 use std::path::PathBuf;
 
 use crate::account;
@@ -12,9 +13,9 @@ use crate::recorder::{Recorded, RecorderFiles};
 use crate::rex::api::{
     BlockView, LayerView, LayoutView, SHELL_FLAVOR, SessionView, TerminalProcess, WindowView,
 };
-use crate::rex::{BlockRef, Rex};
+use crate::rex::{BlockRef, Rex, RexError};
 use crate::scrollback::{
-    NoScrollbackPrograms, ScrollbackSource, ScrollbackStore, SnapshotScrollback,
+    NoScrollbackPrograms, SavedScrollback, ScrollbackSource, ScrollbackStore, SnapshotScrollback,
 };
 use crate::snapshot::{SavedBlock, SavedLayout, SavedSession, SavedSplit, SavedWindow};
 use crate::startup::Starting;
@@ -115,13 +116,59 @@ impl CapturedSession {
         mut self,
         rex: &Rex,
         store: &SnapshotScrollback,
-    ) -> Result<SavedSession> {
+    ) -> Result<SessionWithScrollback> {
+        let mut too_large = Vec::new();
         for (block, source) in self.saved.blocks_mut().zip(self.scrollback) {
-            if let Some(source) = source {
-                block.scrollback = store.save(rex, &source)?;
-            }
+            let Some(source) = source else { continue };
+            block.scrollback = match store.save(rex, &source)? {
+                SavedScrollback::File(path) => Some(path),
+                SavedScrollback::Nothing => None,
+                SavedScrollback::TooLarge(error) => {
+                    too_large.push(TooLargeScrollback {
+                        block_id: source.block_id().to_string(),
+                        error,
+                    });
+                    None
+                }
+            };
         }
-        Ok(self.saved)
+        Ok(SessionWithScrollback {
+            saved: self.saved,
+            too_large,
+        })
+    }
+}
+
+/// A saved session with its blocks' scrollback saved
+/// ([`CapturedSession::with_scrollback`]).
+pub struct SessionWithScrollback {
+    pub saved: SavedSession,
+    /// The blocks saved without scrollback because Rex refused to hand it
+    /// over as too large.
+    pub too_large: Vec<TooLargeScrollback>,
+}
+
+/// A block saved without scrollback because Rex refused to hand it over as
+/// too large (see [`SavedScrollback::TooLarge`]).
+pub struct TooLargeScrollback {
+    block_id: String,
+    /// Rex's refusal.
+    error: RexError,
+}
+
+impl TooLargeScrollback {
+    pub fn block_id(&self) -> &str {
+        &self.block_id
+    }
+}
+
+impl fmt::Display for TooLargeScrollback {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "saved block {} without scrollback, which Rex refused to hand over as too large: {}",
+            self.block_id, self.error
+        )
     }
 }
 

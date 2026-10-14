@@ -11,6 +11,10 @@
 //!   screen itself, which is more reliable than guessing from the foreground
 //!   process: a block running `tail -f` keeps its scrollback, and one left
 //!   on the alternate screen by a killed program loses it.
+//! - A block whose scrollback Rex won't hand over because it's too large
+//!   (`too_large`: larger than Rex's limit on one response) is saved without
+//!   it, and save carries on (see [`SavedScrollback::TooLarge`]). Any other
+//!   failure to read scrollback fails the save.
 //!
 //! On disk, in the state directory:
 //! - `scrollback/<snapshot ID>/<block ID>.vt`: one directory per snapshot,
@@ -32,7 +36,7 @@ use std::path::{Component, Path, PathBuf};
 use crate::account::Account;
 use crate::error::{Error, Result};
 use crate::rex::api::{FormatArgs, TerminalOptions, TerminalProcess};
-use crate::rex::{BlockRef, Rex};
+use crate::rex::{BlockRef, Rex, RexError};
 use crate::snapshot::SavedBlock;
 use crate::state::{self, StateDir};
 use crate::timestamp::Timestamp;
@@ -174,40 +178,59 @@ pub enum ScrollbackSource {
     },
 }
 
+impl ScrollbackSource {
+    /// The ID the block's scrollback is saved under.
+    pub fn block_id(&self) -> &str {
+        match self {
+            ScrollbackSource::Terminal(block) => &block.block_id,
+            ScrollbackSource::Restored { block_id, .. } => block_id,
+        }
+    }
+}
+
+/// What [`SnapshotScrollback::save`] saved of a block's scrollback.
+#[derive(Debug)]
+pub enum SavedScrollback {
+    /// A file: the path its saved block records.
+    File(PathBuf),
+    /// Nothing: the block is on the alternate screen or has nothing in it,
+    /// it's a restored block whose file has gone, or its ID can't name a
+    /// file.
+    Nothing,
+    /// Nothing: Rex refused to hand it over because it's larger than Rex's
+    /// limit on one response. Rex's error.
+    TooLarge(RexError),
+}
+
 impl SnapshotScrollback {
-    /// Saves a shell block's scrollback and returns the path its saved block
-    /// records. `None`, and nothing saved, for a block on the alternate
-    /// screen, a block with nothing in it, a restored block whose file has
-    /// gone, or a block ID that can't name a file.
-    pub fn save(&self, rex: &Rex, source: &ScrollbackSource) -> Result<Option<PathBuf>> {
-        let (block_id, content) = match source {
-            ScrollbackSource::Terminal(block) => {
-                (&block.block_id, terminal_scrollback(rex, block)?)
-            }
-            ScrollbackSource::Restored {
-                block_id,
-                scrollback,
-            } => {
-                let content = match self.store.file(scrollback) {
-                    Some(file) => state::read_file(&file)?
-                        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()),
-                    None => None,
-                };
-                (block_id, content)
-            }
+    /// Saves a shell block's scrollback (see [`SavedScrollback`]).
+    pub fn save(&self, rex: &Rex, source: &ScrollbackSource) -> Result<SavedScrollback> {
+        let content = match source {
+            ScrollbackSource::Terminal(block) => match terminal_scrollback(rex, block) {
+                Ok(content) => content,
+                Err(e) if e.is_too_large() => return Ok(SavedScrollback::TooLarge(e)),
+                Err(e) => return Err(e.into()),
+            },
+            ScrollbackSource::Restored { scrollback, .. } => match self.store.file(scrollback) {
+                Some(file) => state::read_file(&file)?
+                    .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()),
+                None => None,
+            },
         };
+        let block_id = source.block_id();
         let Some(content) = content.filter(|_| state::is_plain_file_name(block_id)) else {
-            return Ok(None);
+            return Ok(SavedScrollback::Nothing);
         };
         let name = format!("{block_id}.vt");
         state::write_file(&self.dir.join(&name), content.as_bytes())?;
-        Ok(Some(self.relative.join(name)))
+        Ok(SavedScrollback::File(self.relative.join(name)))
     }
 }
 
 /// A shell block's scrollback as VT, ready to replay; `None` for a block on
-/// the alternate screen or with nothing in it.
-fn terminal_scrollback(rex: &Rex, block: &BlockRef) -> Result<Option<String>> {
+/// the alternate screen or with nothing in it. The error stays Rex's, so
+/// the caller can tell a refusal as too large from other failures.
+fn terminal_scrollback(rex: &Rex, block: &BlockRef) -> Result<Option<String>, RexError> {
     let (session_id, block_id) = (&block.session_id, &block.block_id);
     let modes = rex.terminal_format(
         session_id,

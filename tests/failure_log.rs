@@ -1,6 +1,8 @@
 //! `save` and `restore` failures are appended to a timestamped log in the
 //! state directory, so a failed autosave (which nobody sees) can still be
-//! diagnosed. Successful runs write nothing to it.
+//! diagnosed. Successful runs write nothing to it (but for auto-restore's
+//! outcomes and save's fallbacks: see tests/auto_restore.rs and
+//! tests/oversized_scrollback.rs).
 
 mod common;
 

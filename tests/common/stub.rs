@@ -1,4 +1,5 @@
-//! A stub `rex` for output no real server produces (a changed beta API).
+//! A stub `rex` for output a throwaway server doesn't produce: a changed
+//! beta API, or an answer that would take megabytes of output to provoke.
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -13,7 +14,7 @@ use super::server::rex_bin;
 /// `PATH` with `env.resurrect(&server).path_prepend(stub.dir())`.
 ///
 /// The stub handles the `api call` invocations its rules pick (by method,
-/// and optionally by something the JSON arguments on stdin contain) and
+/// and optionally by texts the JSON arguments on stdin all contain) and
 /// hands every other invocation, arguments and stdin unchanged, to the real
 /// `rex`. So the binary under test still reaches the throwaway server
 /// (through the `-S` it passes) for everything else, and a canned answer can
@@ -27,9 +28,9 @@ pub struct RexStub {
 /// Which `api call` invocations a rule applies to.
 struct Matching {
     method: String,
-    /// Only when the JSON arguments contain this text (a session's label or
-    /// ID, say).
-    input_contains: Option<String>,
+    /// Only when the JSON arguments contain every one of these texts (a
+    /// session's label or ID, a block method's name, say).
+    input_contains: Vec<String>,
 }
 
 enum Rule {
@@ -63,13 +64,13 @@ impl RexStub {
 
     /// Answers `rex ... api call <method> ...` with `result` on stdout, exit 0.
     pub fn answer(self, method: &str, result: &Value) -> RexStub {
-        self.answer_matching(matching(method, None), result)
+        self.answer_matching(matching(method, &[]), result)
     }
 
     /// Like [`RexStub::answer`], only for calls whose JSON arguments contain
     /// `input_contains`.
     pub fn answer_when(self, method: &str, input_contains: &str, result: &Value) -> RexStub {
-        self.answer_matching(matching(method, Some(input_contains)), result)
+        self.answer_matching(matching(method, &[input_contains]), result)
     }
 
     /// Fails calls to `method` whose JSON arguments contain `input_contains`
@@ -81,8 +82,20 @@ impl RexStub {
         status: i32,
         message: &str,
     ) -> RexStub {
+        self.fail_when_all(method, &[input_contains], status, message)
+    }
+
+    /// Like [`RexStub::fail_when`], only for calls whose JSON arguments
+    /// contain every one of `input_contains`.
+    pub fn fail_when_all(
+        self,
+        method: &str,
+        input_contains: &[&str],
+        status: i32,
+        message: &str,
+    ) -> RexStub {
         self.with_rule(Rule::Fail {
-            matching: matching(method, Some(input_contains)),
+            matching: matching(method, input_contains),
             status,
             message: message.to_string(),
         })
@@ -93,7 +106,7 @@ impl RexStub {
     /// `sed` (exit status kept).
     pub fn rewrite_when(self, method: &str, input_contains: &str, sed: &str) -> RexStub {
         self.with_rule(Rule::Rewrite {
-            matching: matching(method, Some(input_contains)),
+            matching: matching(method, &[input_contains]),
             sed: sed.to_string(),
         })
     }
@@ -103,7 +116,7 @@ impl RexStub {
     /// happens right after the server answered.
     pub fn after(self, method: &str, command: &str) -> RexStub {
         self.with_rule(Rule::After {
-            matching: matching(method, None),
+            matching: matching(method, &[]),
             command: command.to_string(),
         })
     }
@@ -135,10 +148,10 @@ impl RexStub {
     }
 }
 
-fn matching(method: &str, input_contains: Option<&str>) -> Matching {
+fn matching(method: &str, input_contains: &[&str]) -> Matching {
     Matching {
         method: method.to_string(),
-        input_contains: input_contains.map(str::to_string),
+        input_contains: input_contains.iter().map(|text| text.to_string()).collect(),
     }
 }
 
@@ -186,12 +199,11 @@ input=$(cat)
                 ),
             ),
         };
-        let input_pattern = match &matching.input_contains {
-            Some(text) => format!("*{}*", sh_word(text)),
-            None => "*".to_string(),
-        };
+        let action = matching.input_contains.iter().fold(action, |action, text| {
+            format!("case \"$input\" in *{}*) {action} ;; esac", sh_word(text))
+        });
         script.push_str(&format!(
-            "case \"$method\" in {method}) case \"$input\" in {input_pattern}) {action} ;; esac ;; esac\n",
+            "case \"$method\" in {method}) {action} ;; esac\n",
             method = sh_word(&matching.method),
         ));
     }

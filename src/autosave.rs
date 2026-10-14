@@ -59,7 +59,7 @@ fn install(options: &InstallOptions) -> Result<ExitCode> {
         "autosave installed: `rex-resurrect save` runs every {} as the {}\n\
          - server: {}\n\
          - state:  {}\n\
-         - log:    {} (failures only)\n\
+         - log:    {} (failures, and blocks whose scrollback was too large to save)\n\
          Install again after changing which server or state directory to use.",
         job.interval,
         scheduler.describe(),

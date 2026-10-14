@@ -135,6 +135,34 @@ impl fmt::Display for RexError {
 
 impl std::error::Error for RexError {}
 
+impl RexError {
+    /// Whether Rex refused to answer because the answer is larger than its
+    /// limit on one response. `rex` reports it on stderr (exit 1), ending in
+    /// the response's status and Rex's error code:
+    ///
+    /// ```text
+    /// stream response "control-2" failed: control response exceeds 1048576 bytes (status=413 code=too_large)
+    /// ```
+    ///
+    /// Judged by the code, never by a size: Rex's documented limit
+    /// (65,536 bytes) isn't the one it enforces (1 MiB).
+    pub fn is_too_large(&self) -> bool {
+        match self {
+            RexError::Failed { message, .. } => error_code(message) == Some("too_large"),
+            _ => false,
+        }
+    }
+}
+
+/// Rex's error code, from the `(status=<status> code=<code>)` that `rex`
+/// ends an error from Rex with. `None` if the message doesn't end that way.
+fn error_code(message: &str) -> Option<&str> {
+    let (_, suffix) = message.strip_suffix(')')?.rsplit_once('(')?;
+    let (status, code) = suffix.split_once(' ')?;
+    status.strip_prefix("status=")?;
+    code.strip_prefix("code=")
+}
+
 impl Rex {
     /// The server in `REX_SERVER`, or `rex`'s own default when it's unset.
     pub fn from_env() -> Rex {

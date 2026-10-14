@@ -5,16 +5,9 @@
 mod common;
 
 use common::files::{accessible_to_others, disk_usage};
-use common::server::wait_for_file;
+use common::server::{above_prompt, wait_for_file};
 use common::*;
 use serde_json::json;
-
-/// The lines of a capture before its last (the prompt line).
-fn above_prompt(capture: &str) -> Vec<&str> {
-    let mut lines: Vec<&str> = capture.trim_end().lines().collect();
-    lines.pop();
-    lines
-}
 
 #[test]
 fn a_shell_blocks_earlier_output_is_printed_above_the_new_prompt_with_its_last_command_typed() {

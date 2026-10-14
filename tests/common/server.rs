@@ -571,6 +571,13 @@ pub fn decode_file_url(url: &str) -> String {
     String::from_utf8(out).expect("fixture paths are UTF-8")
 }
 
+/// The lines of a capture before its last (the prompt line).
+pub fn above_prompt(capture: &str) -> Vec<&str> {
+    let mut lines: Vec<&str> = capture.trim_end().lines().collect();
+    lines.pop();
+    lines
+}
+
 fn last_line(capture: &str) -> String {
     capture.trim_end().lines().last().unwrap_or("").to_string()
 }
