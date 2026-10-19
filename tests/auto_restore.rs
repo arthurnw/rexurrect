@@ -327,6 +327,39 @@ fn an_auto_restore_that_fails_at_once_says_why_in_the_servers_log() {
     assert_eq!(server.sessions(), []);
 }
 
+/// `rex.exec` returns `nil` when its program never ran, as when rexurrect
+/// moved after the hook was printed. The hook then passes nothing on, and
+/// the rest of init.lua still runs: Rex warns about the program itself.
+#[test]
+fn a_hook_whose_rexurrect_is_gone_lets_the_rest_of_init_lua_run() {
+    let env = TestEnv::new();
+    let server = env.start_server();
+    let printed = hook(&env);
+    let gone = env.root().join("gone/rexurrect");
+    let line = printed.replace(common::rexurrect::bin(), &gone.to_string_lossy());
+    assert_ne!(line, printed, "the hook names rexurrect by its path");
+    let after = env.root().join("after-the-hook");
+    let config = env.root().join("hook.lua");
+    std::fs::write(
+        &config,
+        format!(
+            "{line}rex.exec({{ \"/usr/bin/touch\", [[{}]] }})\n",
+            after.display()
+        ),
+    )
+    .unwrap();
+
+    let out = server
+        .rex()
+        .args(["config", "check"])
+        .arg(&config)
+        .output()
+        .unwrap();
+
+    assert!(out.status.success(), "{out:?}");
+    assert!(after.exists(), "init.lua stopped at the hook: {out:?}");
+}
+
 /// An init.lua line that keeps the server from becoming ready until `go`
 /// exists (for at most 30 seconds, so nothing outlives a failed test).
 fn held_until(go: &Path) -> String {
