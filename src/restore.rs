@@ -168,7 +168,7 @@ impl RestoreReport {
 pub fn run(options: &RestoreOptions) -> Result<ExitCode> {
     let state = StateDir::from_env()?;
     let lock = RestoreLock::acquire(&state)?;
-    let rex = Rex::from_env();
+    let rex = Rex::from_env()?;
     let server = rex.server_status()?;
     let report = restore(&rex, &state, &lock, &server, options)?;
     Ok(report.finish(&state, "restore", &mut std::io::stdout().lock()))

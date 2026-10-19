@@ -64,30 +64,43 @@ pub fn run(options: &AutoRestoreOptions) -> Result<ExitCode> {
 }
 
 /// The line that turns auto-restore on in init.lua:
-/// `os.execute([[REXURRECT_STATE_DIR='<state dir>' '<rexurrect>' auto-restore]])`.
 ///
-/// Both are pinned as they are here. The server runs init.lua in its own
-/// environment, not the user's shell's: the Rex app starts it with a bare
+/// ```lua
+/// do local r = rex.exec({ [[<rexurrect>]], "auto-restore" }, { env = { REXURRECT_STATE_DIR = [[<state dir>]] } }) if r then io.stderr:write(r.stderr) end end
+/// ```
+///
+/// Rex runs commands from init.lua only through `rex.exec` (`os.execute`
+/// raises an error, which stops init.lua there). It takes an argv list and
+/// no shell, and waits for the command: `auto-restore` returns at once, so
+/// that's fine. It captures the command's output, so the line passes stderr
+/// on: to the terminal under `rex config check`, to the server's log when
+/// the server runs init.lua. `r` is `nil` when the program never ran, and
+/// Rex warns about that itself, with init.lua's file and line. `do ... end`
+/// keeps `r` out of the rest of init.lua.
+///
+/// Both paths are pinned as they are here. The server runs init.lua in its
+/// own environment, not the user's shell's: the Rex app starts it with a bare
 /// `PATH`, so `rexurrect` needs its full path, and with no `XDG_*`, so
 /// auto-restore could otherwise pick a different state directory from the
-/// user's shells and their recorder.
+/// user's shells and their recorder. `env` adds the state directory to the
+/// server's environment.
 fn hook() -> Result<String> {
     let program = std::env::current_exe().with_context(|| "finding rexurrect's own path")?;
     let state = StateDir::from_env()?;
-    let command = format!(
-        "{STATE_DIR_VAR}={} {} auto-restore",
-        shell_word(state.path())?,
-        shell_word(&program)?
-    );
-    Ok(format!("os.execute({})", lua_long_string(&command)))
+    Ok(format!(
+        "do local r = rex.exec({{ {}, \"auto-restore\" }}, {{ env = {{ {STATE_DIR_VAR} = {} }} }}) \
+         if r then io.stderr:write(r.stderr) end end",
+        lua_string(&program)?,
+        lua_string(state.path())?
+    ))
 }
 
-/// `path` as one single-quoted `sh` word.
-fn shell_word(path: &Path) -> Result<String> {
+/// `path` as a Lua string.
+fn lua_string(path: &Path) -> Result<String> {
     let path = path
         .to_str()
         .ok_or_else(|| Error::new(format!("{} isn't valid UTF-8", path.display())))?;
-    Ok(format!("'{}'", path.replace('\'', r"'\''")))
+    Ok(lua_long_string(path))
 }
 
 /// `text` as a Lua long string (`[[...]]`), with as many `=` in its

@@ -65,7 +65,7 @@ pub enum Saved {
 pub fn run() -> Result<ExitCode> {
     // Configuration first: a bad setting fails before anything is restored.
     let settings = Settings::from_env()?;
-    let rex = Rex::from_env();
+    let rex = Rex::from_env()?;
     let state = StateDir::from_env()?;
     let lock = RestoreLock::acquire(&state)?;
     // Read once, under the lock: restoring first and saving agree on the

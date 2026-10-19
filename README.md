@@ -22,7 +22,8 @@ cargo install --git https://github.com/cemcatik/rexurrect
 ```
 
 That builds `rexurrect` and puts it in `~/.cargo/bin`, which rustup adds to your `PATH`.
-The `rex` CLI that ships with Rex must be on your `PATH` too (it is inside Rex blocks).
+rexurrect talks to Rex through the `rex` CLI that ships with Rex: the one on your `PATH` (it is
+inside Rex blocks), or else the one a running Rex server runs.
 
 To get last commands back, also load the zsh recorder (next section).
 
@@ -233,6 +234,13 @@ every 15 minutes while Rex is quit gets it there in a few months), it keeps only
 `REX_SERVER` if set (Rex sets it in every block's shell), otherwise the `rex` CLI's default.
 Autosave saves the server `autosave install` names (see [Autosave](#autosave)).
 
+rexurrect calls that server through the `rex` on your `PATH`. With no `rex` there, it runs the
+`rex` a Rex server of yours runs: the server listening at that endpoint, if its command line
+says so, otherwise any (never another user's). It names the endpoint in every call, so
+whichever `rex` it runs reaches the same server. Rex moves its CLI when it updates, so this is
+how autosave finds one (see
+[ADR-0003](docs/adr/0003-reach-rex-through-a-running-servers-executable.md)).
+
 ### Where state lives
 
 Snapshots and rexurrect's own bookkeeping live in its state directory:
@@ -301,10 +309,19 @@ finds it when you run it, and prints the server and state directory it chose:
   up on another one;
 - **the state directory**, resolved as above, so autosave shares snapshots with your manual
   runs and the recorder;
-- `REXURRECT_KEEP` and `REXURRECT_NO_SCROLLBACK`, if set;
-- the directory of the `rex` on your `PATH`. Install fails if there's no `rex` on it.
+- `REXURRECT_KEEP` and `REXURRECT_NO_SCROLLBACK`, if set.
 
 Run `autosave install` again after changing any of these, or after moving `rexurrect`.
+
+The agent's `PATH` is only the system directories, so it has no `rex` on it: Rex moves its CLI
+when it updates, and a directory pinned at install would be gone after the next update. Each
+autosave runs the `rex` a running Rex server runs instead (see [Which server](#which-server)).
+While Rex isn't running there's no server to save, and the autosave fails and logs it as above.
+
+**After upgrading rexurrect**, run `autosave install` once. An agent installed by an earlier
+rexurrect has the directory of the `rex` that was on your `PATH` back then pinned on its
+`PATH`, and keeps using that `rex` for as long as the directory exists, even after Rex has
+updated past it.
 
 `autosave uninstall` unloads the agent and removes its plist, then tells you how to remove the
 zsh recorder and the auto-restore line in `init.lua`. Your snapshots stay in the state
@@ -330,13 +347,22 @@ mkdir -p ~/.config/rex &&
 ```
 
 The line reads
-`os.execute([[REXURRECT_STATE_DIR='/Users/you/.local/state/rexurrect' '/Users/you/.cargo/bin/rexurrect' auto-restore]])`.
+
+```lua
+do local r = rex.exec({ [[/Users/you/.cargo/bin/rexurrect]], "auto-restore" }, { env = { REXURRECT_STATE_DIR = [[/Users/you/.local/state/rexurrect]] } }) if r then io.stderr:write(r.stderr) end end
+```
+
 The server runs it in its own environment, not your shell's: the Rex app starts its server with
 a bare `PATH` and no `XDG_*` variables. So the line names `rexurrect` by its full path, and
 pins the state directory as it was resolved when you printed it (see
 [Where state lives](#where-state-lives)), so auto-restore uses the same snapshots as your shells
 and their recorder. Print the line again, replacing the old one, after moving `rexurrect` or
 changing `REXURRECT_STATE_DIR` or `XDG_STATE_HOME`.
+
+**If your `init.lua` has an `os.execute(...)` line** that runs `rexurrect auto-restore`, the
+line `--print-hook` printed before Rex build 1203, replace it with the line it prints now. Rex
+1203 made `os.execute` an error, so the server stops running `init.lua` at that line: nothing is
+restored, and nothing after it in `init.lua` runs either.
 
 **To turn it off**, delete that line. `autosave uninstall` reminds you to.
 
@@ -358,7 +384,9 @@ until `init.lua` has finished, and carries on in the background:
   which server it restored into and what it created and skipped, that there was nothing to do,
   or why it gave up, plus a line for each session that failed. If the server isn't ready within
   60 seconds, it gives up and logs that. Set `REXURRECT_READY_TIMEOUT` (seconds) in the
-  server's environment, or in the line, to wait longer.
+  server's environment, or in the line's `env`, to wait longer. A failure before it carries on
+  in the background (a `REXURRECT_READY_TIMEOUT` that isn't a number, say) goes to the server's
+  own log too.
 - The Rex app may create a session of its own when it finds the server empty. Auto-restore
   leaves it alone, and while it's untouched `save` never saves it.
 

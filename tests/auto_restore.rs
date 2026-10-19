@@ -40,6 +40,26 @@ fn wait_for_auto_restores(env: &TestEnv, n: usize) -> Vec<String> {
     })
 }
 
+/// Rex runs commands from init.lua only through `rex.exec`, which takes an
+/// argv list: `os.execute` stops init.lua.
+#[test]
+fn the_printed_hook_is_one_line_that_runs_rexurrect_without_a_shell() {
+    let env = TestEnv::new();
+
+    let printed = hook(&env);
+
+    assert_eq!(
+        printed,
+        format!(
+            "do local r = rex.exec({{ [[{bin}]], \"auto-restore\" }}, \
+             {{ env = {{ REXURRECT_STATE_DIR = [[{state}]] }} }}) \
+             if r then io.stderr:write(r.stderr) end end\n",
+            bin = common::rexurrect::bin(),
+            state = env.state_dir().display(),
+        )
+    );
+}
+
 #[test]
 fn a_server_whose_init_lua_has_the_hook_restores_the_latest_snapshot_when_it_starts() {
     let env = TestEnv::new();
@@ -288,11 +308,30 @@ fn rex_config_check_runs_the_hook_but_nothing_is_restored() {
     assert_eq!(env.log_entries(), Vec::<String>::new());
 }
 
+/// `rex.exec` captures what auto-restore prints, so the hook passes its
+/// stderr on: the server's own log is where a user looks when nothing came
+/// back.
+#[test]
+fn an_auto_restore_that_fails_at_once_says_why_in_the_servers_log() {
+    let env = TestEnv::new();
+    env.saved_on_an_earlier_server(&["zz-proj"]);
+
+    let server = env
+        .server()
+        .init_lua(hook(&env))
+        .env("REXURRECT_READY_TIMEOUT", "soon")
+        .start();
+
+    let log = server.log();
+    assert!(log.contains("REXURRECT_READY_TIMEOUT"), "{log}");
+    assert_eq!(server.sessions(), []);
+}
+
 /// An init.lua line that keeps the server from becoming ready until `go`
 /// exists (for at most 30 seconds, so nothing outlives a failed test).
 fn held_until(go: &Path) -> String {
     format!(
-        "os.execute([[for i in $(seq 300); do [ -e '{}' ] && break; sleep 0.1; done]])\n",
+        "rex.exec({{ \"/bin/sh\", \"-c\", [[for i in $(seq 300); do [ -e '{}' ] && break; sleep 0.1; done]] }})\n",
         go.display()
     )
 }

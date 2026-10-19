@@ -26,12 +26,7 @@ fn save_and_restore_fail_without_starting_a_server_when_none_is_running() {
             .arg(command)
             .env("HOME", &home)
             .run();
-        if let Some(pid) = env.server_pid_at(&endpoint) {
-            let _ = std::process::Command::new("kill")
-                .arg(pid.to_string())
-                .status();
-            panic!("`rexurrect {command}` started a Rex server (pid {pid}) at {endpoint}");
-        }
+        env.assert_no_server_started_at(&endpoint, &format!("`rexurrect {command}`"));
         let out = out.assert_failure();
         assert!(out.stderr.contains("autostart is disabled"), "{out}");
     }

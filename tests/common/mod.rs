@@ -47,7 +47,7 @@ pub mod stub;
 pub mod tempdir;
 pub mod zsh;
 
-pub use env::{STATE_DIR_VAR, TestEnv};
+pub use env::{STATE_DIR_VAR, SYSTEM_PATH, TestEnv};
 pub use fixture::{FixtureSession, Layout, Shape, Window, block, hsplit, shell, vsplit, window};
 pub use fixture::{WindowLabels, default_window_label, labels};
 pub use rexurrect::{RexurrectCmd, RunOutput, Running};

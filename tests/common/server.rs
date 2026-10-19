@@ -189,6 +189,12 @@ impl Server {
         self.child.id()
     }
 
+    /// What the server has written to its stdout and stderr so far,
+    /// including whatever init.lua wrote to `io.stderr`.
+    pub fn log(&self) -> String {
+        std::fs::read_to_string(self.dir.join("server.log")).unwrap()
+    }
+
     /// A `rex` command aimed at this server: `-S <endpoint> --autostart=false`
     /// and the scrubbed environment. Always use this (or the helpers below)
     /// rather than a bare `rex`.
@@ -460,13 +466,24 @@ impl Server {
     }
 
     /// Resizes a block. Until a client attaches, a block is 80x24.
+    ///
+    /// Rex applies a size only from the block's owner: the client that
+    /// created it, even after that client has gone, or one that claimed it
+    /// since. So this claims the block and resizes it over one connection,
+    /// in a `rex do` script.
     pub fn resize(&self, session_id: &str, block_id: &str, columns: u32, rows: u32) {
-        self.block_method(
-            session_id,
-            block_id,
-            "resize",
-            json!({ "columns": columns, "rows": rows }),
+        let script = format!(
+            "assert(rex.call('session.own_block', \
+               {{ session_id = rex.session_id, block_ids = {{ rex.block_id }} }}))\n\
+             assert(rex.block.call('com.superlogical.terminal', 'resize', \
+               {{ columns = {columns}, rows = {rows} }}))"
         );
+        let out = self
+            .rex()
+            .args(["do", "-s", session_id, "-b", block_id, "-e", &script])
+            .output()
+            .unwrap();
+        assert_success("rex do (resize)", &out);
     }
 
     /// Waits until a block's capture satisfies `pred`; returns that capture.

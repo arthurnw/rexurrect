@@ -13,6 +13,10 @@ The Rex process that owns every session on a machine. When it stops, all of its 
 One run of the server, from start to stop. Rex gives each one its own ID; no session outlives the instance it was created in.
 _Avoid_: boot, server session, lifetime
 
+**Build**:
+One numbered release of Rex, such as 1203, with its own server and `rex` CLI. Servers of two different builds can run at once.
+_Avoid_: version (easily confused with a snapshot)
+
 **Host**:
 Another Rex server the user connects to by label.
 _Avoid_: remote server, tailnet machine

@@ -4,8 +4,6 @@
 
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::account;
@@ -85,7 +83,9 @@ fn install(options: &InstallOptions) -> Result<ExitCode> {
 ///   every autosave);
 /// - `REXURRECT_NO_SCROLLBACK`, if set (even empty), so autosave leaves out
 ///   the scrollback of the same programs as manual saves;
-/// - `PATH`: `rex`'s directory first, then the system's.
+/// - `PATH`: the system directories launchd uses by default, and no `rex`.
+///   Rex moves its CLI on updates, so save runs the `rex` a running Rex
+///   server runs instead (ADR-0003).
 fn job_env(state: &StateDir) -> Result<BTreeMap<String, String>> {
     let server = match settings::env_non_empty(rex::SERVER_VAR) {
         Some(server) => utf8(&server)?,
@@ -101,33 +101,11 @@ fn job_env(state: &StateDir) -> Result<BTreeMap<String, String>> {
     if let Some(programs) = std::env::var_os(NO_SCROLLBACK_VAR) {
         env.insert(NO_SCROLLBACK_VAR.to_string(), utf8(&programs)?);
     }
-    env.insert("PATH".to_string(), job_path()?);
+    env.insert("PATH".to_string(), SYSTEM_PATH.to_string());
     Ok(env)
 }
 
-/// `PATH` for the job: the directory of the `rex` on this `PATH`, then the
-/// system directories launchd uses by default.
-fn job_path() -> Result<String> {
-    let path = std::env::var_os("PATH").unwrap_or_default();
-    let rex_dir = std::env::split_paths(&path)
-        .find(|dir| is_executable(&dir.join("rex")))
-        .ok_or_else(|| {
-            Error::new(
-                "can't find `rex` on PATH, and autosave needs it: run this where `rex` is on \
-                 your PATH (it is in every Rex block)",
-            )
-        })?;
-    let dirs = std::iter::once(rex_dir.clone()).chain(SYSTEM_PATH.iter().map(PathBuf::from));
-    let joined = std::env::join_paths(dirs)
-        .with_context(|| format!("putting {} on autosave's PATH", rex_dir.display()))?;
-    utf8(&joined)
-}
-
-const SYSTEM_PATH: &[&str] = &["/usr/bin", "/bin", "/usr/sbin", "/sbin"];
-
-fn is_executable(path: &Path) -> bool {
-    std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
-}
+const SYSTEM_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 
 fn utf8(value: &OsStr) -> Result<String> {
     value

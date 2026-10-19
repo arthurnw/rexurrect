@@ -23,6 +23,9 @@ const INHERITED_VARS: &[&str] = &[
 /// Variable the binary reads for its state directory override.
 pub const STATE_DIR_VAR: &str = "REXURRECT_STATE_DIR";
 
+/// The system directories, and no `rex`: the `PATH` launchd gives its agents.
+pub const SYSTEM_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
+
 /// One test's isolated world: a short temp directory holding rexurrect's
 /// state directory, the harness `ZDOTDIR`, scratch directories for fixture
 /// blocks, and one directory per throwaway server started from it.
@@ -208,6 +211,15 @@ impl TestEnv {
         }
         let status: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
         status["pid"].as_u64()
+    }
+
+    /// Checks that no Rex server answers at `endpoint`. One that does was
+    /// started by `what` (a save, say), so it's stopped, then the test fails.
+    pub fn assert_no_server_started_at(&self, endpoint: &str, what: &str) {
+        if let Some(pid) = self.server_pid_at(endpoint) {
+            let _ = Command::new("kill").arg(pid.to_string()).status();
+            panic!("{what} started a Rex server (pid {pid}) at {endpoint}");
+        }
     }
 
     /// Runs an interactive zsh outside Rex, on the harness config and
