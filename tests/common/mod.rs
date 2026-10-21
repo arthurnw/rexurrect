@@ -13,8 +13,9 @@
 //!   and [`Shape`], the comparable form of a layout Rex reports.
 //! - [`RexurrectCmd`]: one run of the binary with a scrubbed environment.
 //! - [`files`]: the state directory's files as seen from outside (modes,
-//!   total size, whether a directory holds anything), for privacy and
-//!   retention checks that don't depend on file names or formats.
+//!   total size, whether a directory holds anything, their bytes to compare),
+//!   for privacy, retention and "wrote nothing" checks that don't depend on
+//!   file names or formats.
 //!
 //! Shared steps and checks: [`TestEnv::saved_on_an_earlier_server`] (a
 //! snapshot taken before a restart), [`TestEnv::listed`],
@@ -34,7 +35,9 @@
 //! - stub `rex`: [`RexStub`], put first on one run's `PATH` with
 //!   `env.rexurrect(&server).path_prepend(stub.dir())` (the harness itself
 //!   always uses the real `rex`, see [`server::rex_bin`]); a slow one:
-//!   [`stub::slow_rex`].
+//!   [`stub::slow_rex`]. Auto-restore runs the `rex` its server runs, not
+//!   the one on `PATH`: start that server with
+//!   `.shown_as(stub.dir().join("rex"))`.
 
 #![allow(dead_code, unused_imports)]
 
@@ -47,7 +50,7 @@ pub mod stub;
 pub mod tempdir;
 pub mod zsh;
 
-pub use env::{STATE_DIR_VAR, SYSTEM_PATH, TestEnv};
+pub use env::{APP_SESSION_WATCH_VAR, STATE_DIR_VAR, SYSTEM_PATH, TestEnv};
 pub use fixture::{FixtureSession, Layout, Shape, Window, block, hsplit, shell, vsplit, window};
 pub use fixture::{WindowLabels, default_window_label, labels};
 pub use rexurrect::{RexurrectCmd, RunOutput, Running};

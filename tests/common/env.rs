@@ -23,6 +23,10 @@ const INHERITED_VARS: &[&str] = &[
 /// Variable the binary reads for its state directory override.
 pub const STATE_DIR_VAR: &str = "REXURRECT_STATE_DIR";
 
+/// Variable the binary reads for how long auto-restore looks for the app
+/// session after restoring, in seconds.
+pub const APP_SESSION_WATCH_VAR: &str = "REXURRECT_APP_SESSION_WATCH";
+
 /// The system directories, and no `rex`: the `PATH` launchd gives its agents.
 pub const SYSTEM_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
 
@@ -297,6 +301,10 @@ impl TestEnv {
     /// socket) when the endpoint in `REX_SERVER` doesn't exist. Pointing it at
     /// an empty temp dir makes any such fallback fail instead of reaching the
     /// user's real server.
+    ///
+    /// Auto-restore looks for the app session for one second, not 30, so a
+    /// test waiting for its log entry doesn't wait half a minute. A server
+    /// can set a longer watch with `.env(...)`.
     pub(crate) fn child_env(&self) -> BTreeMap<OsString, OsString> {
         let mut env = BTreeMap::new();
         for var in INHERITED_VARS {
@@ -317,6 +325,7 @@ impl TestEnv {
         set("XDG_CONFIG_HOME", self.xdg_dir("config").as_os_str());
         set("XDG_DATA_HOME", self.xdg_dir("data").as_os_str());
         set("XDG_CACHE_HOME", self.xdg_dir("cache").as_os_str());
+        set(APP_SESSION_WATCH_VAR, OsStr::new("1"));
         env
     }
 }

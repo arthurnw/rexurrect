@@ -121,3 +121,7 @@ A server instance rexurrect hasn't restored into yet. Save restores before savin
 
 **Auto-restore**:
 A restore that runs by itself once per server instance, as soon as the server is ready.
+
+**App session**:
+A session the Rex app creates on its own when it finds the server with no sessions: an untouched session with a label Rex generated. Auto-restore closes one while it's still untouched.
+_Avoid_: extra session, empty session, default session

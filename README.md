@@ -381,14 +381,26 @@ until `init.lua` has finished, and carries on in the background:
   process's command line, uses it only once the server there reports the right process ID, and
   then names it explicitly in every call. It runs the `rex` that the server itself runs.
 - It's silent. Its output is discarded, and each run adds one line to `rexurrect.log` saying
-  which server it restored into and what it created and skipped, that there was nothing to do,
-  or why it gave up, plus a line for each session that failed. If the server isn't ready within
-  60 seconds, it gives up and logs that. Set `REXURRECT_READY_TIMEOUT` (seconds) in the
+  which server it restored into and what it created and skipped, and the app session it closed
+  (next point), that there was nothing to do, or why it gave up, plus a line for each failure.
+  A run that created sessions adds its line once it stops looking for the app session, up to
+  30 seconds after restoring. If the server isn't ready within 60 seconds, it gives up and
+  logs that. Set `REXURRECT_READY_TIMEOUT` (seconds) in the
   server's environment, or in the line's `env`, to wait longer. A failure before it carries on
   in the background (a `REXURRECT_READY_TIMEOUT` that isn't a number, say) goes to the server's
   own log too.
-- The Rex app may create a session of its own when it finds the server empty. Auto-restore
-  leaves it alone, and while it's untouched `save` never saves it.
+- The Rex app creates a session of its own when it finds the server with no sessions, even
+  while auto-restore is creating yours, so every restart would leave this app session, untouched,
+  beside them. Once auto-restore has created sessions, it closes that app session: it looks for 30
+  seconds after restoring, and closes the first live session it finds that restore didn't
+  create and that's untouched (see [Usage](#usage)), the earliest if there are several. It
+  closes at most one per server instance, and names it in `rexurrect.log`. A session you open
+  yourself in those 30 seconds and haven't used yet looks just like the app's, so if the app's
+  doesn't turn up first, yours is closed instead; nothing in it was worth restoring. An app
+  session that turns up after the 30 seconds is left alone, and while it's untouched `save`
+  never saves it. Only auto-restore closes it: `restore` and the restore a `save` runs first
+  never close a session. See
+  [ADR-0004](docs/adr/0004-close-the-app-session-after-auto-restore.md).
 
 `rex config check` runs `init.lua` too. There auto-restore says it wasn't started by a Rex server
 and does nothing. Any other Rex server that reads the same `init.lua` (one you start by hand with
@@ -536,5 +548,10 @@ Autosave's tests never touch the real launchd either: `launchctl` is found on `P
 put a stand-in first, and `REXURRECT_LAUNCH_AGENTS_DIR` replaces `~/Library/LaunchAgents`.
 To try autosave on the real launchd without touching your own agent, also set
 `REXURRECT_AUTOSAVE_LABEL` to a scratch label (for both `install` and `uninstall`).
+
+`REXURRECT_APP_SESSION_WATCH` sets how long auto-restore looks for the app session after
+restoring: a whole number of seconds, at least 1, 30 by default. The tests give every
+throwaway server 1, so a test waiting for auto-restore's entry in the log doesn't wait half a
+minute.
 
 Terms (session, window, block, label, lineage, ...) follow [GLOSSARY.md](GLOSSARY.md).

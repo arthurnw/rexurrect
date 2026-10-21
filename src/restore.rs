@@ -104,7 +104,14 @@ impl RestoreReport {
     pub fn every_attempt_failed(&self) -> bool {
         let attempted =
             self.count(|o| matches!(o, Outcome::Created { .. } | Outcome::Failed { .. }));
-        let created = self.count(|o| {
+        attempted > 0 && !self.created_a_session()
+    }
+
+    /// Whether restore created at least one session, counting one that
+    /// failed after it was created. Only then does auto-restore look for the
+    /// app session.
+    pub fn created_a_session(&self) -> bool {
+        self.outcomes.iter().any(|o| {
             matches!(
                 o,
                 Outcome::Created { .. }
@@ -113,8 +120,7 @@ impl RestoreReport {
                         ..
                     }
             )
-        });
-        attempted > 0 && created == 0
+        })
     }
 
     /// Appends each session that failed to the log, as a failure of `command`.

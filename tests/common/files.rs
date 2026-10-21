@@ -1,7 +1,8 @@
-//! Properties of the files in a directory that tests check without looking
-//! inside them or relying on their names: who can access them, and how much
-//! space they take.
+//! Properties of the files in a directory that tests check without reading
+//! their formats or relying on their names: who can access them, how much
+//! space they take, and whether they changed.
 
+use std::collections::BTreeMap;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
@@ -32,6 +33,19 @@ pub fn disk_usage(dir: &Path) -> u64 {
         .filter(|(_, meta)| meta.is_file())
         .map(|(_, meta)| meta.len())
         .sum()
+}
+
+/// Every file under `dir`, with its contents: compare two to check that
+/// nothing was written there in between.
+pub fn contents(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+    walk(dir)
+        .into_iter()
+        .filter(|(_, meta)| meta.is_file())
+        .map(|(path, _)| {
+            let bytes = std::fs::read(&path).unwrap();
+            (path, bytes)
+        })
+        .collect()
 }
 
 /// `dir` and everything under it except symlinks, with their metadata.

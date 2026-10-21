@@ -2,6 +2,7 @@
 //! Talks to Rex only through the `rex` CLI (see `rex`).
 
 mod account;
+mod app_session;
 mod auto_restore;
 mod autosave;
 mod capture;

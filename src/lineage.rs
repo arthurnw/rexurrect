@@ -48,6 +48,11 @@ impl LineageMap {
             .unwrap_or_else(|| Lineage(session_id.to_string()))
     }
 
+    /// Whether the live session `session_id` is one restore created.
+    pub fn is_restored_session(&self, session_id: &str) -> bool {
+        self.restored.contains_key(session_id)
+    }
+
     /// Records that restore created `session_id` from a saved session of `lineage`.
     pub fn record(&mut self, session_id: &str, lineage: Lineage) {
         self.restored.insert(session_id.to_string(), lineage);

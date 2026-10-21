@@ -248,7 +248,9 @@ fn worth_saving(session: &SavedSession, home: &Path) -> bool {
 /// found it, including one restore carried forward, and "no last command"
 /// means none that restore would type. A block saved as a plain shell in
 /// home (a remote block, say) is judged as that plain shell.
-fn is_untouched(session: &SavedSession, home: &Path) -> bool {
+///
+/// Auto-restore judges the app session the same way (see `app_session`).
+pub fn is_untouched(session: &SavedSession, home: &Path) -> bool {
     let [window] = session.windows.as_slice() else {
         return false;
     };

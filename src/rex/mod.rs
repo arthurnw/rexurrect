@@ -26,7 +26,7 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use serde::Serialize;
-use serde::de::DeserializeOwned;
+use serde::de::{DeserializeOwned, IgnoredAny};
 use serde_json::{Value, json};
 
 use crate::account;
@@ -317,6 +317,14 @@ impl Rex {
 
     pub fn create_session(&self, request: &CreateSession) -> Result<CreatedSession, RexError> {
         self.call("session.create", request)
+    }
+
+    /// Closes a session, ending every block in it. Unlike `rex kill`, no
+    /// attach first: Rex closes it whoever is attached to it, or owns its
+    /// blocks.
+    pub fn destroy_session(&self, session_id: &str) -> Result<(), RexError> {
+        let _: IgnoredAny = self.call("session.destroy", &json!({ "session_id": session_id }))?;
+        Ok(())
     }
 
     /// The terminal `pwd` method: the directory the block's shell last reported.

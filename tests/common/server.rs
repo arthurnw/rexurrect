@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
 use std::fs::File;
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::{Arc, OnceLock};
@@ -44,6 +45,7 @@ pub struct ServerBuilder<'a> {
     extra_env: Vec<(OsString, OsString)>,
     path_prepend: Vec<PathBuf>,
     holding_open: Option<PathBuf>,
+    shown_as: Option<PathBuf>,
 }
 
 impl<'a> ServerBuilder<'a> {
@@ -56,6 +58,7 @@ impl<'a> ServerBuilder<'a> {
             extra_env: Vec::new(),
             path_prepend: Vec::new(),
             holding_open: None,
+            shown_as: None,
         }
     }
 
@@ -93,6 +96,15 @@ impl<'a> ServerBuilder<'a> {
         self
     }
 
+    /// Starts the real `rex` with `program` as its argv[0], which `ps` shows
+    /// as the server's executable. Auto-restore calls the server through
+    /// the `rex` it finds that way, so a stub `rex` ([`super::RexStub`])
+    /// here stands between auto-restore and the server.
+    pub fn shown_as(mut self, program: impl Into<PathBuf>) -> Self {
+        self.shown_as = Some(program.into());
+        self
+    }
+
     /// Starts the server and waits until it's ready.
     pub fn start(self) -> Server {
         let mut server = self.start_without_waiting();
@@ -121,7 +133,16 @@ impl<'a> ServerBuilder<'a> {
 
         let log = File::create(self.dir.join("server.log")).unwrap();
         let mut command = match &self.holding_open {
-            None => Command::new(rex_bin()),
+            None => {
+                let mut rex = Command::new(rex_bin());
+                if let Some(program) = &self.shown_as {
+                    rex.arg0(program);
+                }
+                rex
+            }
+            Some(_) if self.shown_as.is_some() => {
+                panic!("a server can't be both holding a file open and shown as another rex")
+            }
             Some(path) => {
                 let mut sh = Command::new("/bin/sh");
                 sh.args(["-c", r#"exec 9>>"$0" && exec "$@""#])

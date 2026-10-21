@@ -8,8 +8,9 @@
 //!
 //! The background run waits for the server to be ready, then restores into
 //! it unless rexurrect already has: once per server instance, so a config
-//! reload restores nothing. It logs the outcome either way, since nobody
-//! sees its output.
+//! reload restores nothing. If that created sessions, it then closes the
+//! app session (see [`app_session`]). It logs the outcome either way, since
+//! nobody sees its output.
 //!
 //! It never relies on `REX_SERVER` to reach the server: init.lua runs with
 //! whatever environment the server was started with, which can name another
@@ -22,11 +23,12 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 use crate::account;
+use crate::app_session::{self, Watched};
 use crate::error::{Context, Error, Result};
 use crate::instance::RestoreLock;
-use crate::log::Log;
+use crate::log::{self, Log};
 use crate::process;
-use crate::restore;
+use crate::restore::{self, RestoreReport};
 use crate::rex::Rex;
 use crate::rex::server_process::{self, ServerProcess, Starter};
 use crate::settings;
@@ -119,6 +121,7 @@ fn lua_long_string(text: &str) -> String {
 /// the server's open files.
 fn start_in_background() -> Result<ExitCode> {
     ready_timeout()?;
+    app_session::watch_length()?;
     let server = match server_process::find_starter()? {
         Starter::Server(server) => server,
         Starter::OtherRex { command } => {
@@ -149,10 +152,13 @@ fn start_in_background() -> Result<ExitCode> {
 }
 
 /// Waits for the server with this pid to be ready, then restores into it
-/// unless this server instance was already restored into, and logs what
-/// happened as one entry (after an entry for each session that failed).
+/// unless this server instance was already restored into. If that created
+/// any session, looks for the app session and closes it (see
+/// `app_session`). Logs what happened as one entry, once it stops looking
+/// (after an entry for each failure).
 fn restore_when_ready(pid: u32) -> Result<ExitCode> {
     let timeout = ready_timeout()?;
+    let watch = app_session::watch_length()?;
     let state = StateDir::from_env()?;
     let server = ServerProcess::read(pid)?
         .ok_or_else(|| Error::new(format!("there's no Rex server with pid {pid}")))?;
@@ -162,7 +168,13 @@ fn restore_when_ready(pid: u32) -> Result<ExitCode> {
     // the server is running once it's this run's turn.
     let server = ready.rex.server_status()?;
     let restored = restore::restore_unrestored_instance(&ready.rex, &state, &lock, &server)?;
-    let (outcome, status) = match restored {
+    // The instance is recorded as restored by now. A save or restore that
+    // starts while this run looks for the app session needn't wait for it.
+    drop(lock);
+    let created = restored
+        .as_ref()
+        .is_some_and(RestoreReport::created_a_session);
+    let (mut outcome, mut status) = match restored {
         None => (
             "already restored into; nothing to do".to_string(),
             ExitCode::SUCCESS,
@@ -173,6 +185,19 @@ fn restore_when_ready(pid: u32) -> Result<ExitCode> {
             (String::from_utf8_lossy(&printed).into_owned(), status)
         }
     };
+    if created {
+        match app_session::close_app_session(&ready.rex, &state, &server, watch) {
+            Watched::Closed(session) => outcome.push_str(&format!("\nclosed {session}")),
+            Watched::NoneFound => {}
+            Watched::ServerStopped => {
+                outcome.push_str("\nstopped looking for the app session because the server stopped")
+            }
+            Watched::CloseFailed(session, e) => {
+                log::log_failure(&state, "auto-restore", &format!("closing {session}: {e}"));
+                status = ExitCode::FAILURE;
+            }
+        }
+    }
     let message = format!(
         "auto-restore into {} (server instance {}): {outcome}",
         ready.endpoint, server.instance_id
@@ -239,16 +264,5 @@ fn wait_until_ready(server: &ServerProcess, timeout: Duration) -> Result<Ready> 
 
 /// `REXURRECT_READY_TIMEOUT`, or the default of a minute.
 fn ready_timeout() -> Result<Duration> {
-    let Some(value) = settings::env_non_empty(READY_TIMEOUT_VAR) else {
-        return Ok(DEFAULT_READY_TIMEOUT);
-    };
-    value
-        .to_str()
-        .and_then(settings::whole_number_at_least_1)
-        .map(|seconds| Duration::from_secs(seconds.get()))
-        .ok_or_else(|| {
-            Error::new(format!(
-                "{READY_TIMEOUT_VAR} must be a whole number of seconds, at least 1, not {value:?}"
-            ))
-        })
+    settings::seconds(READY_TIMEOUT_VAR, DEFAULT_READY_TIMEOUT)
 }
