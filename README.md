@@ -293,6 +293,15 @@ every 15 minutes, or every `--interval` minutes, from now on and after every log
 again replaces the agent, so there's only ever one. macOS may show a one-time "Background Items
 Added" notification.
 
+Autosave works on a Mac nobody is logged in to at the console, too: a headless Mac you reach over
+SSH, running a Rex server there. launchd loads agents into the GUI domain (`gui/<uid>`), which
+exists only while you're logged in at the console or over Screen Sharing. Without it,
+`autosave install` loads the agent into your user domain (`user/<uid>`) instead, which exists
+while you have any process running, an SSH login included. Install again after logging in at the
+console to move the agent to the GUI domain, which loads it at every later login. launchd
+doesn't document reloading agents into the user domain after a restart, so on a headless Mac
+check that autosave is loaded after restarting (below), and run `autosave install` again if not.
+
 Autosave is silent: its output is discarded, and a failure (Rex not running, an API error, a
 snapshot that fails validation) only adds a line to `rexurrect.log` in the state directory.
 While Rex isn't running, each autosave fails and logs it; it never starts a server. On a freshly
@@ -328,7 +337,7 @@ zsh recorder and the auto-restore line in `init.lua`. Your snapshots stay in the
 directory.
 
 To check that autosave works, run `launchctl print gui/$(id -u)/io.github.cemcatik.rexurrect.autosave`
-(its `last exit code` should be 0 after the first run) and `rexurrect list` (a new snapshot
+(or `user/$(id -u)/…` without a GUI login; its `last exit code` should be 0 after the first run) and `rexurrect list` (a new snapshot
 every interval), and look in `rexurrect.log` for failures.
 
 ## Auto-restore

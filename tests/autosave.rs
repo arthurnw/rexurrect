@@ -20,11 +20,14 @@ use serde_json::Value;
 const AGENTS_DIR_VAR: &str = "REXURRECT_LAUNCH_AGENTS_DIR";
 const LABEL: &str = "io.github.cemcatik.rexurrect.autosave";
 
-/// A stand-in for the user's launchd domain: a LaunchAgents directory and a
-/// `launchctl` that models `print`, `bootstrap` and `bootout` on it the way
-/// the real one answers (bootstrapping a loaded agent fails, booting out an
-/// agent that isn't loaded fails). It keeps a copy of each loaded agent's
-/// plist as it was when bootstrapped, as launchd does.
+/// A stand-in for the user's launchd domains: a LaunchAgents directory and a
+/// `launchctl` that models `print`, `bootstrap` and `bootout` on the GUI
+/// domain (`gui/<uid>`) and the user domain (`user/<uid>`) the way the real
+/// one answers (bootstrapping a loaded agent fails, booting out an agent that
+/// isn't loaded fails, the GUI domain is missing without a GUI login, and a
+/// domain refuses an agent whose `LimitLoadToSessionType` leaves out its
+/// session type). It keeps a copy of each loaded agent's plist as it was when
+/// bootstrapped, as launchd does.
 struct FakeLaunchd {
     dir: PathBuf,
 }
@@ -32,7 +35,7 @@ struct FakeLaunchd {
 impl FakeLaunchd {
     fn new(env: &TestEnv) -> FakeLaunchd {
         let dir = env.mkdir("launchd");
-        for sub in ["bin", "loaded", "LaunchAgents"] {
+        for sub in ["bin", "loaded/gui", "loaded/user", "LaunchAgents"] {
             std::fs::create_dir_all(dir.join(sub)).unwrap();
         }
         let script = dir.join("bin/launchctl");
@@ -57,14 +60,46 @@ impl FakeLaunchd {
         std::fs::write(self.dir.join("refuse-bootstrap"), "").unwrap();
     }
 
+    /// Takes the GUI domain away, as on a Mac nobody is logged in to at the
+    /// console: only the user domain is left.
+    fn without_gui_login(&self) {
+        std::fs::write(self.dir.join("no-gui"), "").unwrap();
+    }
+
+    /// Brings the GUI domain back, as when the user logs in at the console.
+    fn with_gui_login(&self) {
+        std::fs::remove_file(self.dir.join("no-gui")).unwrap();
+    }
+
     /// The plists in the LaunchAgents directory.
     fn installed(&self) -> Vec<Agent> {
         plists_in(&self.agents_dir())
     }
 
-    /// The agents loaded into the fake domain, as they were bootstrapped.
+    /// The agents loaded into either fake domain, as they were bootstrapped.
     fn loaded(&self) -> Vec<Agent> {
-        plists_in(&self.dir.join("loaded"))
+        let mut agents = self.loaded_in("gui");
+        agents.extend(self.loaded_in("user"));
+        agents
+    }
+
+    /// The agents loaded into one fake domain: `"gui"` or `"user"`.
+    fn loaded_in(&self, domain: &str) -> Vec<Agent> {
+        plists_in(&self.dir.join("loaded").join(domain))
+    }
+
+    /// Loads `agent`'s plist straight into a fake domain, as an earlier
+    /// install would have left it.
+    fn preload(&self, domain: &str, agent: &Path) {
+        let label = Agent::read(agent).label().to_string();
+        std::fs::copy(
+            agent,
+            self.dir
+                .join("loaded")
+                .join(domain)
+                .join(format!("{label}.plist")),
+        )
+        .unwrap();
     }
 
     /// The one agent installed and loaded, checking the two agree.
@@ -87,30 +122,56 @@ fn launchctl_script(dir: &Path) -> String {
 # Stand-in launchctl (rexurrect test harness).
 state='{dir}'
 printf '%s\n' "$*" >> "$state/calls"
+# The domain kind (gui or user) of a target like gui/501 or user/501/label.
+kind() {{ printf '%s' "${{1%%/*}}"; }}
+# Fails if the domain $1 doesn't exist: the GUI domain without a GUI login.
+exists() {{
+  if [ "$1" = gui ] && [ -f "$state/no-gui" ]; then
+    echo "Could not print domain: 125: Domain does not support specified action" >&2
+    exit 125
+  fi
+}}
 case "$1" in
   print)
+    domain=$(kind "$2")
+    exists "$domain"
+    case "$2" in */*/*) ;; *) echo "$2 = {{ ... }}"; exit 0 ;; esac
     label=${{2##*/}}
-    if [ -f "$state/loaded/$label.plist" ]; then echo "$2 = {{ ... }}"; exit 0; fi
-    echo "Could not find service \"$label\" in domain for user gui" >&2
+    if [ -f "$state/loaded/$domain/$label.plist" ]; then echo "$2 = {{ ... }}"; exit 0; fi
+    echo "Could not find service \"$label\" in domain for user $domain" >&2
     exit 113 ;;
   bootstrap)
+    domain=$(kind "$2")
     if [ -f "$state/refuse-bootstrap" ]; then
       echo "Bootstrap failed: 5: Input/output error" >&2
       exit 5
     fi
+    if [ "$domain" = gui ] && [ -f "$state/no-gui" ]; then
+      echo "Bootstrap failed: 125: Domain does not support specified action" >&2
+      exit 125
+    fi
+    # launchd's default session type is Aqua; the user domain's is Background.
+    session=Aqua; [ "$domain" = user ] && session=Background
+    types=$(/usr/bin/plutil -extract LimitLoadToSessionType json -o - "$3" 2>/dev/null || echo '["Aqua"]')
+    case "$types" in
+      *\"$session\"*) ;;
+      *) echo "Bootstrap failed: 5: Input/output error" >&2; exit 5 ;;
+    esac
     label=$(/usr/bin/plutil -extract Label raw -o - "$3") || exit 5
-    if [ -f "$state/loaded/$label.plist" ]; then
+    if [ -f "$state/loaded/$domain/$label.plist" ]; then
       echo "Bootstrap failed: 5: Input/output error" >&2
       exit 5
     fi
-    cp "$3" "$state/loaded/$label.plist" ;;
+    cp "$3" "$state/loaded/$domain/$label.plist" ;;
   bootout)
+    domain=$(kind "$2")
+    exists "$domain"
     label=${{2##*/}}
-    if [ ! -f "$state/loaded/$label.plist" ]; then
+    if [ ! -f "$state/loaded/$domain/$label.plist" ]; then
       echo "Boot-out failed: 3: No such process" >&2
       exit 3
     fi
-    rm "$state/loaded/$label.plist" ;;
+    rm "$state/loaded/$domain/$label.plist" ;;
   *)
     echo "stand-in launchctl: unexpected call: $*" >&2
     exit 64 ;;
@@ -568,4 +629,129 @@ fn autosaves_keep_as_many_snapshots_as_install_was_told_to() {
 
     let list = env.rexurrect(&server).arg("list").run().assert_success();
     assert_eq!(list.stdout.lines().count(), 2, "{list}");
+}
+
+#[test]
+fn with_a_gui_login_install_loads_the_agent_into_the_gui_domain() {
+    let env = TestEnv::new();
+    let launchd = FakeLaunchd::new(&env);
+
+    launchd
+        .aim(env.rexurrect_at(NO_SERVER))
+        .args(["autosave", "install"])
+        .run()
+        .assert_success();
+
+    assert_eq!(launchd.loaded_in("gui").len(), 1);
+    assert!(launchd.loaded_in("user").is_empty());
+}
+
+/// A headless Mac reached over SSH has no GUI domain, only the user domain.
+#[test]
+fn without_a_gui_login_install_loads_the_agent_into_the_user_domain() {
+    let env = TestEnv::new();
+    let launchd = FakeLaunchd::new(&env);
+    launchd.without_gui_login();
+
+    launchd
+        .aim(env.rexurrect_at(NO_SERVER))
+        .args(["autosave", "install"])
+        .run()
+        .assert_success();
+
+    assert!(launchd.loaded_in("gui").is_empty());
+    assert_eq!(launchd.loaded_in("user").len(), 1);
+    // the_agent checks the loaded agent is the installed plist.
+    assert_eq!(launchd.the_agent().label(), LABEL);
+}
+
+#[test]
+fn an_agent_installed_without_a_gui_login_still_saves() {
+    let env = TestEnv::new();
+    let launchd = FakeLaunchd::new(&env);
+    launchd.without_gui_login();
+    let server = env.start_server();
+    let fixture = server.create_session("zz-headless", &[window(shell(env.mkdir("a")))]);
+    server.wait_for_pwds(&fixture);
+    launchd
+        .aim(env.rexurrect(&server))
+        .args(["autosave", "install"])
+        .run()
+        .assert_success();
+
+    launchd.the_agent().run_as_launchd(&env).assert_success();
+
+    server.kill_session(&fixture.id);
+    env.restore(&server);
+    assert_eq!(server.session_ids_labelled("zz-headless").len(), 1);
+}
+
+/// An agent loaded into the user domain stays there after a GUI login, so
+/// installing again then must not leave a second copy running.
+#[test]
+fn installing_again_after_a_gui_login_moves_the_agent_to_the_gui_domain() {
+    let env = TestEnv::new();
+    let launchd = FakeLaunchd::new(&env);
+    let install = || {
+        launchd
+            .aim(env.rexurrect_at(NO_SERVER))
+            .args(["autosave", "install"])
+            .run()
+            .assert_success()
+    };
+    launchd.without_gui_login();
+    install();
+    launchd.with_gui_login();
+
+    install();
+
+    assert_eq!(launchd.loaded_in("gui").len(), 1);
+    assert!(launchd.loaded_in("user").is_empty());
+}
+
+#[test]
+fn uninstall_unloads_the_agent_from_whichever_domain_it_is_in() {
+    let env = TestEnv::new();
+    let launchd = FakeLaunchd::new(&env);
+    launchd.without_gui_login();
+    launchd
+        .aim(env.rexurrect_at(NO_SERVER))
+        .args(["autosave", "install"])
+        .run()
+        .assert_success();
+    // The user has since logged in at the console.
+    launchd.with_gui_login();
+
+    launchd
+        .aim(env.rexurrect_at(NO_SERVER))
+        .args(["autosave", "uninstall"])
+        .run()
+        .assert_success();
+
+    assert!(launchd.loaded().is_empty(), "the agent was unloaded");
+    assert!(launchd.installed().is_empty(), "its plist was removed");
+}
+
+/// An agent an earlier rexurrect loaded into both domains (by hand, say) is
+/// replaced by one.
+#[test]
+fn install_replaces_copies_loaded_in_both_domains_with_one() {
+    let env = TestEnv::new();
+    let launchd = FakeLaunchd::new(&env);
+    launchd
+        .aim(env.rexurrect_at(NO_SERVER))
+        .args(["autosave", "install"])
+        .run()
+        .assert_success();
+    let plist = launchd.agents_dir().join(format!("{LABEL}.plist"));
+    launchd.preload("user", &plist);
+
+    launchd
+        .aim(env.rexurrect_at(NO_SERVER))
+        .args(["autosave", "install"])
+        .run()
+        .assert_success();
+
+    assert_eq!(launchd.loaded_in("gui").len(), 1);
+    assert!(launchd.loaded_in("user").is_empty());
 }

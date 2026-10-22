@@ -1,5 +1,6 @@
 //! The launchd scheduler: a user agent in `~/Library/LaunchAgents`, loaded
-//! into the user's GUI domain with `launchctl`.
+//! with `launchctl` into the user's GUI domain, or into their user domain
+//! when there's no GUI login (a headless Mac reached over SSH).
 //!
 //! For testing:
 //! - `launchctl` is found on `PATH`, and `$REXURRECT_LAUNCH_AGENTS_DIR`
@@ -27,9 +28,7 @@ const LABEL_VAR: &str = "REXURRECT_AUTOSAVE_LABEL";
 pub struct Launchd {
     label: String,
     agents_dir: PathBuf,
-    /// The user's GUI domain, `gui/<uid>`, where agents in
-    /// `~/Library/LaunchAgents` are loaded at login.
-    domain: String,
+    uid: u32,
 }
 
 impl Launchd {
@@ -52,7 +51,31 @@ impl Launchd {
         Ok(Launchd {
             label,
             agents_dir,
-            domain: format!("gui/{}", current_uid()),
+            uid: current_uid(),
+        })
+    }
+
+    /// The user's GUI domain, `gui/<uid>`, where agents in
+    /// `~/Library/LaunchAgents` are loaded at login. It exists only while
+    /// the user is logged in at the console (or over Screen Sharing).
+    fn gui_domain(&self) -> String {
+        format!("gui/{}", self.uid)
+    }
+
+    /// The user's user domain, `user/<uid>`, which exists whenever they
+    /// have a process running, an SSH login included. It loads only agents
+    /// that allow the `Background` session type.
+    fn user_domain(&self) -> String {
+        format!("user/{}", self.uid)
+    }
+
+    /// The domain to load the agent into: the GUI domain if there is one,
+    /// else the user domain.
+    fn install_domain(&self) -> Result<String> {
+        let gui = self.gui_domain();
+        Ok(match launchctl(&["print", &gui])? {
+            Ok(()) => gui,
+            Err(_) => self.user_domain(),
         })
     }
 
@@ -60,13 +83,24 @@ impl Launchd {
         self.agents_dir.join(format!("{}.plist", self.label))
     }
 
-    /// The agent as a launchctl service target: `gui/<uid>/<label>`.
-    fn service(&self) -> String {
-        format!("{}/{}", self.domain, self.label)
+    /// The agent as a launchctl service target: `<domain>/<label>`.
+    fn service(&self, domain: &str) -> String {
+        format!("{domain}/{}", self.label)
     }
 
-    fn is_loaded(&self) -> Result<bool> {
-        Ok(launchctl(&["print", &self.service()])?.is_ok())
+    /// Boots the agent out of every domain it's loaded in: an agent loaded
+    /// into the user domain stays there after a GUI login, and the other
+    /// way round. `true` if it was loaded anywhere.
+    fn unload(&self) -> Result<bool> {
+        let mut unloaded = false;
+        for domain in [self.gui_domain(), self.user_domain()] {
+            let service = self.service(&domain);
+            if launchctl(&["print", &service])?.is_ok() {
+                launchctl_ok(&["bootout", &service])?;
+                unloaded = true;
+            }
+        }
+        Ok(unloaded)
     }
 }
 
@@ -83,11 +117,10 @@ impl Scheduler for Launchd {
     /// so one that launchd refused to load now is removed again.
     fn install(&self, job: &Job) -> Result<()> {
         let path = self.plist_path();
+        let domain = self.install_domain()?;
         write_plist(&path, &plist(&self.label, job))?;
-        if self.is_loaded()? {
-            launchctl_ok(&["bootout", &self.service()])?;
-        }
-        let loaded = launchctl_ok(&["bootstrap", &self.domain, path_str(&path)?]);
+        self.unload()?;
+        let loaded = launchctl_ok(&["bootstrap", &domain, path_str(&path)?]);
         if let Err(e) = loaded {
             return Err(match state::remove_if_exists(&path) {
                 Ok(_) => Error::new(format!("{e}; removed {} again", path.display())),
@@ -98,17 +131,15 @@ impl Scheduler for Launchd {
     }
 
     fn uninstall(&self) -> Result<bool> {
-        let loaded = self.is_loaded()?;
-        if loaded {
-            launchctl_ok(&["bootout", &self.service()])?;
-        }
+        let loaded = self.unload()?;
         let removed = state::remove_if_exists(&self.plist_path())?;
         Ok(loaded || removed)
     }
 }
 
 /// The agent's plist: runs the job every interval, in the background, with
-/// its output discarded.
+/// its output discarded. `LimitLoadToSessionType` lets the same plist load
+/// into the GUI domain (`Aqua`) and the user domain (`Background`).
 fn plist(label: &str, job: &Job) -> String {
     let mut arguments = String::new();
     for arg in std::iter::once(&job.program).chain(&job.args) {
@@ -139,6 +170,11 @@ fn plist(label: &str, job: &Job) -> String {
 	<integer>{interval}</integer>
 	<key>ProcessType</key>
 	<string>Background</string>
+	<key>LimitLoadToSessionType</key>
+	<array>
+		<string>Aqua</string>
+		<string>Background</string>
+	</array>
 	<key>StandardOutPath</key>
 	<string>/dev/null</string>
 	<key>StandardErrorPath</key>
