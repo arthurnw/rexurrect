@@ -1,6 +1,6 @@
 //! `rexurrect restore`: recreate a snapshot's sessions, the latest by default.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::process::ExitCode;
 
@@ -243,6 +243,7 @@ fn restore_sessions(
     starting.retain(Timestamp::now(), is_live);
     let mut defaults = DefaultCommands::load(state)?;
     let replay = Replay::new(state);
+    let mut resuming = HashSet::new();
 
     let mut report = RestoreReport {
         snapshot: Some(snapshot_id.clone()),
@@ -262,7 +263,7 @@ fn restore_sessions(
             report.outcomes.push(Outcome::WouldCreate { label });
             continue;
         }
-        let as_created = create::as_created(saved, &home, &replay);
+        let as_created = create::as_created(saved, &home, &replay, &mut resuming);
         let created = match rex.create_session(&create::create_request(&as_created, &replay)) {
             Ok(created) => created,
             Err(e) => {

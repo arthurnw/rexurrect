@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::agent::AgentConversation;
 use crate::error::{Error, Result};
 use crate::lineage::Lineage;
 use crate::rex::api::Direction;
@@ -170,4 +171,9 @@ pub struct SavedBlock {
     /// full-screen program, or had nothing to save.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scrollback: Option<PathBuf>,
+    /// The agent conversation open in the block when it was saved, which
+    /// restore resumes there (see `agent`). Absent unless an agent was
+    /// running in the block's foreground and had reported one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<AgentConversation>,
 }

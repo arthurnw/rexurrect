@@ -1,7 +1,7 @@
 //! Upkeep after a save: forgetting blocks and sessions that aren't live, and
 //! removing temporary files that crashed writes left behind.
 //!
-//! Recorder files and default last commands are keyed by block ID, lineage
+//! Recorder files, agent files and default last commands are keyed by block ID, lineage
 //! entries and startup-window records by session ID, and Rex never reuses
 //! either, so once a block or session is gone its file or entry can't matter
 //! again. Save removes them only once it has written a snapshot. A save that
@@ -11,6 +11,7 @@
 use std::collections::HashSet;
 use std::time::SystemTime;
 
+use crate::agent::AgentFiles;
 use crate::defaults::DefaultCommands;
 use crate::error::Result;
 use crate::lineage::LineageMap;
@@ -61,7 +62,8 @@ pub fn remove_stale_temp_files(state: &StateDir) -> Result<()> {
     state::remove_stale_temp_files(state.path(), state::is_temp_name)?;
     SnapshotStore::new(state).remove_stale_temp_files()?;
     ScrollbackStore::new(state).remove_stale_temp_files()?;
-    RecorderFiles::new(state).remove_stale_temp_files()
+    RecorderFiles::new(state).remove_stale_temp_files()?;
+    AgentFiles::new(state).remove_stale_temp_files()
 }
 
 /// Removes the recorder files and default last commands of blocks, and the
@@ -74,6 +76,7 @@ pub fn forget_what_is_not_live(state: &StateDir, live: &Live) -> Result<()> {
     let is_live_block = |block_id: &str| live.blocks.contains(block_id);
     let is_live_session = |session_id: &str| live.sessions.contains(session_id);
     RecorderFiles::new(state).retain_live(is_live_block, live.read_at)?;
+    AgentFiles::new(state).retain_live(is_live_block, live.read_at)?;
     let mut defaults = DefaultCommands::load(state)?;
     if defaults.retain_live(is_live_block) {
         defaults.save()?;

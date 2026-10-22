@@ -259,6 +259,7 @@ pub fn is_untouched(session: &SavedSession, home: &Path) -> bool {
     };
     window.label.is_none()
         && block.label.is_none()
+        && block.agent.is_none()
         && create::typed_command(block).is_none()
         && same_directory(&block.working_directory, home)
 }

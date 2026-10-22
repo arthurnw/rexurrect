@@ -10,8 +10,9 @@ needs nothing else at runtime.
 > each window's split layout and ratios, window and block labels you set, each block's working
 > directory, each block's earlier output above its prompt, and each block's last command typed
 > at that prompt: the one the zsh recorder recorded or, without one, the program running in
-> the block or last seen running there. Autosave runs `save` every 15 minutes, and auto-restore
-> runs `restore` when the Rex server starts.
+> the block or last seen running there. A block running pi, Claude Code or Codex comes back
+> running it again, resuming the conversation it had open. Autosave runs `save` every 15
+> minutes, and auto-restore runs `restore` when the Rex server starts.
 
 ## Install
 
@@ -25,7 +26,8 @@ That builds `rexurrect` and puts it in `~/.cargo/bin`, which rustup adds to your
 rexurrect talks to Rex through the `rex` CLI that ships with Rex: the one on your `PATH` (it is
 inside Rex blocks), or else the one a running Rex server runs.
 
-To get last commands back, also load the zsh recorder (next section).
+To get last commands back, also load the zsh recorder (next section). To get agent
+conversations back, also install the agent hooks (see [Agent conversations](#agent-conversations)).
 
 ### The zsh recorder
 
@@ -143,7 +145,8 @@ that isn't a shell block, a block on another host, and a window whose blocks hav
 come back as a plain shell in your home directory. Floating blocks aren't saved.
 
 Each restored block's last command is typed at its prompt but **never run**: press Enter to
-resume, edit it, or clear it. Only single-line commands are typed; a block with no last
+resume, edit it, or clear it. The one exception is a block that was running a coding agent,
+which comes back running it again (see [Agent conversations](#agent-conversations)). Only single-line commands are typed; a block with no last
 command gets an empty prompt. A restored block keeps its last command through later saves and
 restores until the recorder records something new in it or, without the recorder, until a save
 sees a program running in it.
@@ -420,6 +423,65 @@ restored into, not just the last.
 If auto-restore can't tell which endpoint is the server's (one containing a space that isn't
 percent-encoded; Rex's own endpoints are encoded), it gives up and logs that rather than restore
 into any other server.
+
+## Agent conversations
+
+A block that was running pi, Claude Code or Codex at save time comes back running that agent
+again, resuming the conversation it had open, the way [herdr](https://herdr.dev/docs/session-state/#native-agent-session-restore)
+does. Restore runs the agent's resume command in a fresh shell in the block's saved directory:
+
+| Agent | Resume command |
+| --- | --- |
+| pi | `pi --session <session file>` |
+| Claude Code | `claude --resume <session ID>` |
+| Codex | `codex resume <session ID>` |
+
+Only the conversation comes back: flags the agent was first started with (`--model`, say)
+don't. A resumed block gets no scrollback; the agent draws its interface again.
+
+Each agent tells rexurrect which conversation it has open through a hook that runs
+`rexurrect agent-hook <agent>`, so install the hooks for the agents you use. The hooks run in
+the agent's environment, so `rexurrect` needs to be on the `PATH` you start agents with.
+
+- **pi**: copy or symlink [`integrations/pi/rexurrect.ts`](integrations/pi/rexurrect.ts) into
+  `~/.pi/agent/extensions/`. It reports pi's session file on startup, on every new, resumed or
+  forked session, and whenever pi starts working. It ignores pi's headless modes, which
+  subagents run in. Set `REXURRECT` to rexurrect's path if it isn't on pi's `PATH`.
+- **Claude Code**: add a `SessionStart` hook to `~/.claude/settings.json`. It fires on
+  startup, `/resume`, `/clear` and compaction, so the block follows the conversation on screen.
+  Subagents are ignored.
+
+  ```json
+  {
+    "hooks": {
+      "SessionStart": [
+        { "hooks": [{ "type": "command", "command": "rexurrect agent-hook claude", "timeout": 5 }] }
+      ]
+    }
+  }
+  ```
+- **Codex**: add the same `SessionStart` hook to `~/.codex/hooks.json`, with
+  `rexurrect agent-hook codex`, and turn hooks on in `~/.codex/config.toml`
+  (`[features]` `hooks = true`). A Codex started by another Codex is ignored.
+
+The hook does nothing outside Rex, prints nothing (Claude Code would add it to the
+conversation) and writes one small file per block, `agents/<block ID>` in the state directory.
+
+A conversation is saved only while its agent is still running in the block's foreground. Quit
+the agent and the block is a shell again: its last command comes back typed, not run. Restore
+also leaves a conversation alone, and types the block's last command instead, when:
+
+- the block's saved directory no longer exists (Claude Code finds a conversation by the
+  directory it ran in);
+- pi's session file no longer exists;
+- another block in the same restore already resumes it: two agents writing one conversation
+  would garble it.
+
+Auto-restore runs the resume commands as the server starts, often before the Rex app has
+attached, so an agent may start at a default size and redraw once the app shows its block.
+
+To stop resuming an agent's conversations, remove its hook. Blocks whose conversations were
+already saved still resume them until a save sees them without one.
 
 ## Upgrading from rex-resurrect
 

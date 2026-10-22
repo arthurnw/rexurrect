@@ -2,6 +2,8 @@
 //! Talks to Rex only through the `rex` CLI (see `rex`).
 
 mod account;
+mod agent;
+mod agent_hook;
 mod app_session;
 mod auto_restore;
 mod autosave;
@@ -51,6 +53,7 @@ fn main() -> ExitCode {
         Command::Restore(options) => logging_failure("restore", restore::run(&options)),
         Command::List => list::run(),
         Command::Autosave(command) => autosave::run(&command),
+        Command::AgentHook(agent) => logging_failure("agent-hook", agent_hook::run(agent)),
         Command::AutoRestore(options) => {
             logging_failure("auto-restore", auto_restore::run(&options))
         }

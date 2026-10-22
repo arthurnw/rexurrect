@@ -4,6 +4,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 use crate::account;
+use crate::agent::{AgentConversation, AgentFiles};
 use crate::defaults::DefaultCommands;
 use crate::error::{Error, Result};
 use crate::foreground;
@@ -36,6 +37,9 @@ pub struct CaptureContext {
     pub home: PathBuf,
     /// Each local shell block's last command, as its recorder recorded it.
     pub recorder: RecorderFiles,
+    /// Each local shell block's agent conversation, as its agent's hook
+    /// reported it.
+    pub agents: AgentFiles,
     /// The sessions and blocks restore created that are still starting.
     pub starting: Starting,
     /// Each block's default last command. A program the capture sees in a
@@ -62,6 +66,7 @@ impl CaptureContext {
             host_id: host_id.to_string(),
             home: account::home()?,
             recorder: RecorderFiles::new(state),
+            agents: AgentFiles::new(state),
             starting,
             defaults: DefaultCommands::load(state)?,
             scrollback: ScrollbackStore::new(state).for_snapshot(taken_at),
@@ -89,6 +94,7 @@ impl CaptureContext {
             working_directory: self.home.clone(),
             last_command: None,
             scrollback: None,
+            agent: None,
         }
     }
 }
@@ -315,6 +321,7 @@ impl Capture<'_> {
                 working_directory: created.working_directory.clone(),
                 last_command: created.last_command.clone(),
                 scrollback: None,
+                agent: created.agent.clone(),
             });
         }
         let process = rex.terminal_process(session_id, block_id)?;
@@ -323,8 +330,12 @@ impl Capture<'_> {
             working_directory: workdir::working_directory(rex, session_id, block_id, &process)?,
             last_command: self.last_command(block_id, recorded, &process)?,
             scrollback: None,
+            agent: self.agent_conversation(block_id, &process)?,
         };
-        let has_scrollback = !self.context.no_scrollback.running_in(&process);
+        // An agent's interface is no earlier output: restore resumes the
+        // agent instead, which draws it again.
+        let has_scrollback =
+            saved.agent.is_none() && !self.context.no_scrollback.running_in(&process);
         self.scrollback.push(has_scrollback.then(|| {
             ScrollbackSource::Terminal(BlockRef {
                 session_id: session_id.clone(),
@@ -362,6 +373,27 @@ impl Capture<'_> {
                 None => self.context.defaults.get(block_id).map(str::to_string),
             },
         })
+    }
+
+    /// The block's agent conversation: the one its agent's hook reported,
+    /// else, in its startup window, the one restore resumed there (the
+    /// resumed agent may not have reported yet). Only while that agent is
+    /// still in the block's foreground: once it exits, the block is a shell
+    /// again.
+    fn agent_conversation(
+        &self,
+        block_id: &str,
+        process: &TerminalProcess,
+    ) -> Result<Option<AgentConversation>> {
+        let reported = match self.context.agents.read(block_id)? {
+            Some(reported) => Some(reported),
+            None => self
+                .context
+                .starting
+                .block(block_id)
+                .and_then(|created| created.agent.clone()),
+        };
+        Ok(reported.filter(|conversation| conversation.is_running_in(process)))
     }
 
     /// [`CaptureContext::plain_shell`]: no scrollback.

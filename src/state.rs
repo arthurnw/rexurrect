@@ -233,7 +233,7 @@ fn write_new_file(path: &Path, contents: &[u8], mode: u32) -> std::io::Result<()
 
 /// Creates `dir` and any missing parents as `0700`. Existing directories are
 /// left as they are.
-fn create_private_dirs(dir: &Path) -> Result<()> {
+pub fn create_private_dirs(dir: &Path) -> Result<()> {
     fs::DirBuilder::new()
         .recursive(true)
         .mode(0o700)

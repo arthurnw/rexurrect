@@ -7,6 +7,7 @@
 use std::ffi::OsString;
 use std::fmt;
 
+use crate::agent::Agent;
 use crate::auto_restore::AutoRestoreOptions;
 use crate::autosave::{AutosaveCommand, InstallOptions};
 use crate::restore::RestoreOptions;
@@ -18,6 +19,7 @@ pub enum Command {
     List,
     Autosave(AutosaveCommand),
     AutoRestore(AutoRestoreOptions),
+    AgentHook(Agent),
     Help,
     Version,
 }
@@ -38,6 +40,9 @@ Commands:
   auto-restore
             For Rex's init.lua: once the server running it is ready, restore
             into it in the background, once per server instance
+  agent-hook <agent>
+            For an agent's hooks (pi, claude, codex): record the conversation
+            it has open in this block, so restore resumes it there
   help      Show this help
 
 Restore options:
@@ -95,6 +100,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, UsageE
         "list" => no_options(&mut args, "list").map(|()| Command::List),
         "autosave" => parse_autosave(&mut args).map(Command::Autosave),
         "auto-restore" => parse_auto_restore(&mut args).map(Command::AutoRestore),
+        "agent-hook" => parse_agent_hook(&mut args).map(Command::AgentHook),
         "help" => Ok(Command::Help),
         "-V" | "--version" | "version" => Ok(Command::Version),
         other => Err(UsageError(format!("unknown command {other:?}"))),
@@ -172,6 +178,21 @@ fn parse_auto_restore(args: &mut Args) -> Result<AutoRestoreOptions, UsageError>
         ));
     }
     Ok(options)
+}
+
+fn parse_agent_hook(args: &mut Args) -> Result<Agent, UsageError> {
+    let Some(name) = args.next() else {
+        return Err(UsageError(
+            "agent-hook needs an agent: pi, claude or codex".into(),
+        ));
+    };
+    let agent = Agent::from_name(&name).ok_or_else(|| {
+        UsageError(format!(
+            "agent-hook: unknown agent {name:?} (pi, claude or codex)"
+        ))
+    })?;
+    no_options(args, "agent-hook")?;
+    Ok(agent)
 }
 
 /// The remaining arguments, as UTF-8 strings.

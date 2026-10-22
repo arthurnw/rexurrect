@@ -87,8 +87,18 @@ A command the recorder doesn't record, leaving the previous last command in plac
 _Avoid_: skip list, skipped command
 
 **Last command**:
-The command a restored shell block gets typed at its prompt, never run: the most recent command the block's recorder recorded. A block the recorder has recorded nothing for (no recorder installed, or its shell started before it was) falls back to the program in its foreground, and keeps the last such program once it exits; failing that, a restored block keeps the last command it was restored with, or none. That way it carries forward across any number of server instances. rexurrect itself running in a block is never its last command.
+The command a restored shell block gets typed at its prompt, never run (unless restore resumes an agent conversation there instead): the most recent command the block's recorder recorded. A block the recorder has recorded nothing for (no recorder installed, or its shell started before it was) falls back to the program in its foreground, and keeps the last such program once it exits; failing that, a restored block keeps the last command it was restored with, or none. That way it carries forward across any number of server instances. rexurrect itself running in a block is never its last command.
 _Avoid_: last history entry
+
+**Agent**:
+A coding agent whose conversations rexurrect resumes: pi, Claude Code (`claude`) or Codex (`codex`).
+
+**Agent conversation**:
+The conversation an agent has open in a shell block, as its hook reported it: pi's session file, or Claude Code's or Codex's session ID. Saved only while the agent is in the block's foreground. Restore runs the agent's resume command in a block saved with one, rather than typing its last command, unless the block's directory or pi's session file is gone, or another block in the same restore resumes the same conversation.
+_Avoid_: agent session (clashes with **Session**), thread
+
+**Agent hook**:
+`rexurrect agent-hook <agent>`, run by an agent's own hook or extension whenever it starts a conversation or switches to another. It records the block's agent conversation in the state directory.
 
 ### Restoring
 
