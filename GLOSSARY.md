@@ -29,12 +29,15 @@ One tab in a session, holding one layout.
 _Avoid_: tab
 
 **Block**:
-One leaf of a layout. Today every block is a shell block.
+One leaf of a layout. Today every block has Rex's shell flavor: a shell block, or a command block.
 _Avoid_: pane
 
 **Shell block**:
 A block running an interactive terminal shell.
 _Avoid_: terminal block
+
+**Command block**:
+A block Rex started with a command rather than a shell: the command is its first process, and no shell runs in it. It has a shell block's flavor and is saved like one, and comes back as a shell block with the command as its last command.
 
 **Remote block**:
 A block that lives on a host rather than on the local server.
@@ -87,7 +90,7 @@ A command the recorder doesn't record, leaving the previous last command in plac
 _Avoid_: skip list, skipped command
 
 **Last command**:
-The command a restored shell block gets typed at its prompt, never run: the most recent command the block's recorder recorded. A block the recorder has recorded nothing for (no recorder installed, or its shell started before it was) falls back to the program in its foreground (its arguments, each quoted where zsh needs it, and never one with a control character in an argument), and keeps the last such program once it exits; failing that, a restored block keeps the last command it was restored with, or none. That way it carries forward across any number of server instances. rexurrect itself running in a block is never its last command.
+The command a restored shell block gets typed at its prompt, never run: the most recent command the block's recorder recorded. A block the recorder has recorded nothing for (no recorder installed, or its shell started before it was) falls back to the program in its foreground, a command block's own command included (its arguments, each quoted where zsh needs it, and never one with a control character in an argument), and keeps the last such program once it exits; failing that, a restored block keeps the last command it was restored with, or none. That way it carries forward across any number of server instances. rexurrect itself running in a block is never its last command.
 _Avoid_: last history entry
 
 ### Restoring

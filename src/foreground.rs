@@ -1,6 +1,7 @@
-//! The program in a shell block's foreground: the last command of a block
-//! nothing has recorded anything for (no recorder file), because no
-//! recorder is installed or its shell started before one was.
+//! The program in a block's foreground, a shell block's or a command
+//! block's own command: the last command of a block nothing has recorded
+//! anything for (no recorder file), because no recorder is installed or its
+//! shell started before one was, or it has no shell.
 
 use crate::error::Result;
 use crate::process;
@@ -67,6 +68,7 @@ fn is_plain(argument: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rex::api::ProcessInfo;
 
     fn line(arguments: &[&str]) -> Option<String> {
         zsh_line(&arguments.iter().map(|a| a.to_string()).collect::<Vec<_>>())
@@ -94,6 +96,23 @@ mod tests {
             line(&["echo", "it's", "*", "$HOME", "", "=vim"]).as_deref(),
             Some(r"echo 'it'\''s' '*' '$HOME' '' '=vim'")
         );
+    }
+
+    /// Its arguments are never read: `pid` 1 isn't rexurrect.
+    #[test]
+    fn rexurrect_as_a_blocks_first_process_is_not_its_last_command() {
+        let process = TerminalProcess {
+            foreground: ProcessInfo {
+                pid: 1,
+                name: REXURRECT.to_string(),
+                invoked_path: None,
+                argv0: Some(REXURRECT.to_string()),
+                cwd: None,
+            },
+            ancestors: Vec::new(),
+            home: "/home/u".into(),
+        };
+        assert_eq!(foreground_command(&process).unwrap(), None);
     }
 
     #[test]

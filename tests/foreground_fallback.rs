@@ -155,6 +155,79 @@ fn a_block_without_a_recorder_file_running_a_program_restores_with_its_command_l
     assert!(!marker.exists(), "the typed command must not have run");
 }
 
+/// #42: a command block has no shell running, so its command is its first
+/// process. It isn't a shell, so it's the block's foreground program all
+/// the same.
+#[test]
+fn a_command_block_restores_with_its_command_line_typed_not_run() {
+    let env = TestEnv::new();
+    let server = env.start_server();
+    let tail = ["tail", "-n", "0", "-f", "/dev/null"];
+    let fixture = server.create_session(
+        "zz-command",
+        &[window(block(json!({
+            "cwd": env.mkdir("a").to_str().unwrap(),
+            "command": tail,
+        })))],
+    );
+    server.wait_for_foreground(&fixture.id, fixture.block_ids()[0], "tail");
+
+    env.save(&server);
+    server.kill_session(&fixture.id);
+    env.restore(&server);
+
+    let restored = server.the_session_labelled("zz-command");
+    let block = server.block_ids(&restored).remove(0);
+    server.wait_for_typed(&restored, &block, &tail.join(" "));
+    assert_eq!(
+        server.foreground(&restored, &block).as_deref(),
+        Some("zsh"),
+        "the restored shell is idle"
+    );
+}
+
+/// #42 as reported: Claude Code is installed as a `claude` symlink to an
+/// executable named for its version, so Rex names the block's first process
+/// `2.1.309`. Only the name it was run by says what it is.
+#[test]
+fn a_command_block_started_through_a_symlink_named_for_its_version_restores_with_its_command_line_typed()
+ {
+    let env = TestEnv::new();
+    let server = env.start_server();
+    let version = env.mkdir("versions").join("2.1.309");
+    std::fs::copy("/bin/sleep", &version).unwrap();
+    // macOS kills a copy of a system binary run from elsewhere unless it's
+    // signed again.
+    #[cfg(target_os = "macos")]
+    assert!(
+        std::process::Command::new("codesign")
+            .args(["--force", "--sign", "-"])
+            .arg(&version)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let claude = env.mkdir("bin").join("claude");
+    std::os::unix::fs::symlink(&version, &claude).unwrap();
+    let command = [claude.to_str().unwrap(), "600"];
+    let fixture = server.create_session(
+        "zz-claude",
+        &[window(block(json!({
+            "cwd": env.mkdir("a").to_str().unwrap(),
+            "command": command,
+        })))],
+    );
+    server.wait_for_foreground(&fixture.id, fixture.block_ids()[0], "2.1.309");
+
+    env.save(&server);
+    server.kill_session(&fixture.id);
+    env.restore(&server);
+
+    let restored = server.the_session_labelled("zz-claude");
+    let block = server.block_ids(&restored).remove(0);
+    server.wait_for_typed(&restored, &block, &command.join(" "));
+}
+
 #[test]
 fn a_shell_nested_in_a_block_without_a_recorder_file_counts_as_its_foreground_program() {
     let env = TestEnv::new();
