@@ -87,7 +87,7 @@ A command the recorder doesn't record, leaving the previous last command in plac
 _Avoid_: skip list, skipped command
 
 **Last command**:
-The command a restored shell block gets typed at its prompt, never run: the most recent command the block's recorder recorded. A block the recorder has recorded nothing for (no recorder installed, or its shell started before it was) falls back to the program in its foreground, and keeps the last such program once it exits; failing that, a restored block keeps the last command it was restored with, or none. That way it carries forward across any number of server instances. rexurrect itself running in a block is never its last command.
+The command a restored shell block gets typed at its prompt, never run: the most recent command the block's recorder recorded. A block the recorder has recorded nothing for (no recorder installed, or its shell started before it was) falls back to the program in its foreground (its arguments, each quoted where zsh needs it, and never one with a control character in an argument), and keeps the last such program once it exits; failing that, a restored block keeps the last command it was restored with, or none. That way it carries forward across any number of server instances. rexurrect itself running in a block is never its last command.
 _Avoid_: last history entry
 
 ### Restoring

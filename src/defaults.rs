@@ -39,8 +39,14 @@ impl DefaultCommands {
         })
     }
 
+    /// The block's default last command. Never one an earlier version saved
+    /// from `ps`, with its control characters escaped: that isn't what ran
+    /// (see [`is_escaped_by_ps`]).
     pub fn get(&self, block_id: &str) -> Option<&str> {
-        self.commands.get(block_id).map(String::as_str)
+        self.commands
+            .get(block_id)
+            .map(String::as_str)
+            .filter(|command| !is_escaped_by_ps(command))
     }
 
     /// Makes `command` the block's default last command, and says whether
@@ -65,5 +71,34 @@ impl DefaultCommands {
 
     pub fn save(&self) -> Result<()> {
         state::write_json(&self.path, &self.commands)
+    }
+}
+
+/// Whether `command` holds `\` and three octal digits: how `ps`, which
+/// earlier versions read the foreground program from, prints a control
+/// character (a line break as `\012`). Such a default last command isn't what
+/// ran, so it's treated as absent. A program seen with that text really in its
+/// arguments is rarely dropped with it: the cost is an empty prompt.
+/// Recorded commands aren't checked: `printf '\033[0m'` is typed by hand.
+fn is_escaped_by_ps(command: &str) -> bool {
+    command.as_bytes().windows(4).any(|window| {
+        window[0] == b'\\'
+            && window[1..]
+                .iter()
+                .all(|digit| (b'0'..=b'7').contains(digit))
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ps_escapes_are_recognised() {
+        assert!(is_escaped_by_ps(r"sh -c tail -f /dev/null\012true"));
+        assert!(is_escaped_by_ps(r"printf a\011b"));
+        assert!(!is_escaped_by_ps(r"printf '\n'"));
+        assert!(!is_escaped_by_ps(r"grep \089"));
+        assert!(!is_escaped_by_ps("vim notes.txt"));
     }
 }

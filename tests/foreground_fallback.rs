@@ -9,7 +9,7 @@ mod common;
 
 use std::path::Path;
 
-use common::server::wait_for_file;
+use common::server::{wait_for, wait_for_file};
 use common::*;
 use serde_json::json;
 
@@ -251,4 +251,139 @@ fn a_block_without_a_recorder_file_sitting_at_a_prompt_restores_with_an_empty_pr
     for block in server.block_ids(&restored) {
         server.assert_empty_prompt(&restored, &block);
     }
+}
+
+/// `block_id`'s default last command in `default-commands.json`, if any.
+fn default_command(env: &TestEnv, block_id: &str) -> Option<String> {
+    let text = std::fs::read_to_string(env.state_dir().join("default-commands.json")).ok()?;
+    let defaults: serde_json::Value = serde_json::from_str(&text).unwrap();
+    defaults[block_id].as_str().map(str::to_string)
+}
+
+/// Every last command in every snapshot.
+fn snapshot_commands(env: &TestEnv) -> Vec<String> {
+    fn collect(value: &serde_json::Value, found: &mut Vec<String>) {
+        match value {
+            serde_json::Value::Object(map) => {
+                found.extend(
+                    map.get("last_command")
+                        .and_then(|c| c.as_str())
+                        .map(str::to_string),
+                );
+                map.values().for_each(|v| collect(v, found));
+            }
+            serde_json::Value::Array(items) => items.iter().for_each(|v| collect(v, found)),
+            _ => {}
+        }
+    }
+    let mut found = Vec::new();
+    for entry in std::fs::read_dir(env.state_dir().join("snapshots")).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_some_and(|ext| ext == "json") {
+            let text = std::fs::read_to_string(&path).unwrap();
+            collect(&serde_json::from_str(&text).unwrap(), &mut found);
+        }
+    }
+    found
+}
+
+/// #41: `ps` printed a line break in an argument as `\012`, and restore
+/// typed that as one line. A program whose arguments can't be typed is
+/// refused, so the block keeps its earlier default: here, none.
+#[test]
+fn a_program_whose_arguments_hold_a_line_break_is_not_its_blocks_last_command() {
+    let env = TestEnv::new();
+    let server = env.start_server();
+    let fixture = server.create_session("zz-multiline", &[window(shell(env.mkdir("a")))]);
+    server.wait_for_pwds(&fixture);
+    let block = fixture.block_ids()[0];
+    server.run(&fixture.id, block, "sh -c $'tail -n 0 -f /dev/null\\ntrue'");
+    // `sh` is bash on macOS, dash elsewhere: whichever it is, it's running.
+    wait_for("sh in the foreground", || {
+        server
+            .foreground(&fixture.id, block)
+            .filter(|name| name != "zsh")
+    });
+
+    env.save(&server);
+    assert_eq!(default_command(&env, block), None);
+    assert_eq!(snapshot_commands(&env), Vec::<String>::new());
+    server.kill_session(&fixture.id);
+    env.restore(&server);
+
+    let restored = server.the_session_labelled("zz-multiline");
+    server.assert_empty_prompt(&restored, &server.block_ids(&restored)[0]);
+}
+
+/// A refused program leaves the block's default last command as it was: the
+/// last program a save saw there.
+#[test]
+fn a_program_whose_arguments_hold_a_line_break_leaves_the_blocks_default_alone() {
+    let env = TestEnv::new();
+    let server = env.start_server();
+    let fixture = server.create_session("zz-kept", &[window(shell(env.mkdir("a")))]);
+    server.wait_for_pwds(&fixture);
+    let block = fixture.block_ids()[0];
+    let tail = "tail -n 0 -f /dev/null";
+    server.run(&fixture.id, block, tail);
+    server.wait_for_foreground(&fixture.id, block, "tail");
+    env.save(&server);
+
+    server.write(&fixture.id, block, "\u{3}");
+    server.wait_for_foreground(&fixture.id, block, "zsh");
+    server.wait_for_empty_prompt(&fixture.id, block);
+    server.run(&fixture.id, block, "sh -c $'tail -n 0 -f /dev/null\\ntrue'");
+    wait_for("sh in the foreground", || {
+        server
+            .foreground(&fixture.id, block)
+            .filter(|name| name != "zsh")
+    });
+    assert_restored_elsewhere_with_typed(&env, &server, "zz-kept", tail);
+    assert_eq!(default_command(&env, block).as_deref(), Some(tail));
+}
+
+/// Earlier versions stored `ps`'s escaped text as a block's default. It's
+/// dropped rather than typed, and doesn't carry into new snapshots.
+#[test]
+fn a_default_last_command_escaped_by_ps_is_neither_typed_nor_carried_forward() {
+    let env = TestEnv::new();
+    let server = env.start_server();
+    let fixture = server.create_session("zz-escaped", &[window(shell(env.mkdir("a")))]);
+    server.wait_for_pwds(&fixture);
+    let block = fixture.block_ids()[0];
+    std::fs::write(
+        env.state_dir().join("default-commands.json"),
+        json!({ block: "sh -c tail -f /dev/null\\012true" }).to_string(),
+    )
+    .unwrap();
+
+    env.save(&server);
+    assert_eq!(snapshot_commands(&env), Vec::<String>::new());
+    server.kill_session(&fixture.id);
+    env.restore(&server);
+
+    let restored = server.the_session_labelled("zz-escaped");
+    server.assert_empty_prompt(&restored, &server.block_ids(&restored)[0]);
+}
+
+/// Arguments are quoted where zsh needs it, so the typed command runs the
+/// same program with the same arguments: saved again while it runs, it
+/// comes back the same.
+#[test]
+fn a_program_with_an_argument_holding_a_space_comes_back_quoted() {
+    let env = TestEnv::new();
+    let server = env.start_server();
+    let dir = env.mkdir("a");
+    let file = dir.join("a b");
+    std::fs::write(&file, "").unwrap();
+    let fixture = server.create_session("zz-quoted", &[window(shell(&dir))]);
+    server.wait_for_pwds(&fixture);
+    let tail = format!("tail -n 0 -f '{}'", file.display());
+    server.run(&fixture.id, fixture.block_ids()[0], &tail);
+    server.wait_for_foreground(&fixture.id, fixture.block_ids()[0], "tail");
+
+    let (restored, block) = restored_and_started(&env, &server, &fixture.id, "zz-quoted", &tail);
+    server.write(&restored, &block, "\n");
+    server.wait_for_foreground(&restored, &block, "tail");
+    assert_restored_elsewhere_with_typed(&env, &server, "zz-quoted", &tail);
 }
