@@ -231,7 +231,23 @@ impl TestEnv {
     /// on stdin until it exits at the end of it.
     pub fn zsh_outside_rex(&self, extra_env: &[(&str, &str)], input: &str) {
         use std::io::Write;
-        let mut child = Command::new("zsh")
+        use std::os::unix::process::CommandExt;
+        let mut command = Command::new("zsh");
+        // An interactive zsh whose stdin isn't a terminal reads from
+        // `/dev/tty` instead, which is the user's keyboard when `cargo test`
+        // runs in a terminal. A new process session (`setsid`) has no
+        // controlling terminal, so zsh falls back to reading the pipe.
+        // SAFETY: `setsid` is async-signal-safe, so callable between fork
+        // and exec.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+        let mut child = command
             .arg("-i")
             .env_clear()
             .envs(self.child_env())
