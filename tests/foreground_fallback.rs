@@ -195,18 +195,7 @@ fn a_command_block_started_through_a_symlink_named_for_its_version_restores_with
     let env = TestEnv::new();
     let server = env.start_server();
     let version = env.mkdir("versions").join("2.1.309");
-    std::fs::copy("/bin/sleep", &version).unwrap();
-    // macOS kills a copy of a system binary run from elsewhere unless it's
-    // signed again.
-    #[cfg(target_os = "macos")]
-    assert!(
-        std::process::Command::new("codesign")
-            .args(["--force", "--sign", "-"])
-            .arg(&version)
-            .status()
-            .unwrap()
-            .success()
-    );
+    build_sleeper(&env, &version);
     let claude = env.mkdir("bin").join("claude");
     std::os::unix::fs::symlink(&version, &claude).unwrap();
     let command = [claude.to_str().unwrap(), "600"];

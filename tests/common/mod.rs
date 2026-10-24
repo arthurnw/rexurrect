@@ -21,9 +21,9 @@
 //! snapshot taken before a restart), [`TestEnv::listed`],
 //! [`Server::sorted_labels`], [`Server::assert_empty_prompt`].
 //!
-//! Safety: every child process gets an environment built from an allowlist,
-//! so `REX_BLOCK`, `REX_SESSION`, the real `REX_SERVER` and the user's XDG
-//! dirs never leak in. Harness `rex` calls always pass `-S <endpoint>` and
+//! Safety: every child process that can reach Rex gets an environment built
+//! from an allowlist, so `REX_BLOCK`, `REX_SESSION`, the real `REX_SERVER` and
+//! the user's XDG dirs never leak in. Harness `rex` calls always pass `-S <endpoint>` and
 //! `--autostart=false`. Nothing touches process-global state, so tests can run
 //! concurrently; each test starts its own server(s).
 //!
@@ -38,6 +38,8 @@
 //!   [`stub::slow_rex`]. Auto-restore runs the `rex` its server runs, not
 //!   the one on `PATH`: start that server with
 //!   `.shown_as(stub.dir().join("rex"))`.
+//! - an executable to copy, rename or run through a symlink:
+//!   [`build_sleeper`], a test-built program that sleeps.
 
 #![allow(dead_code, unused_imports)]
 
@@ -46,6 +48,7 @@ pub mod files;
 pub mod fixture;
 pub mod rexurrect;
 pub mod server;
+pub mod sleeper;
 pub mod stub;
 pub mod tempdir;
 pub mod zsh;
@@ -55,4 +58,5 @@ pub use fixture::{FixtureSession, Layout, Shape, Window, block, hsplit, shell, v
 pub use fixture::{WindowLabels, default_window_label, labels};
 pub use rexurrect::{RexurrectCmd, RunOutput, Running};
 pub use server::{Server, SessionSummary};
+pub use sleeper::build_sleeper;
 pub use stub::RexStub;
