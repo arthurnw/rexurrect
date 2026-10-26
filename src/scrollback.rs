@@ -74,7 +74,8 @@ impl NoScrollbackPrograms {
 
     /// Whether the block whose terminal `process` method answered `process`
     /// is running one of these programs, by any name the program goes by
-    /// (the name it was run by, or its executable's).
+    /// (the name it was run by, or its executable's), whether its shell runs
+    /// it or it's a command block's command.
     pub fn running_in(&self, process: &TerminalProcess) -> bool {
         process.foreground_program().is_some_and(|program| {
             program
@@ -365,4 +366,31 @@ struct ReplayArguments<'a> {
     file: String,
     user: &'a str,
     shell: &'a str,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::rex::api::ProcessInfo;
+
+    /// #42: a command block's first process is its command. Claude Code's
+    /// executable is named for its version, so only its `argv0` is listed.
+    #[test]
+    fn a_command_block_running_a_listed_program_by_argv0_is_listed() {
+        let claude = TerminalProcess {
+            foreground: ProcessInfo {
+                pid: 1,
+                name: "2.1.309".to_string(),
+                invoked_path: Some("/home/u/.local/bin/claude".into()),
+                argv0: Some("claude".to_string()),
+                cwd: None,
+            },
+            ancestors: Vec::new(),
+            home: "/home/u".into(),
+        };
+        let listed = NoScrollbackPrograms {
+            names: vec!["claude".to_string()],
+        };
+        assert!(listed.running_in(&claude));
+    }
 }

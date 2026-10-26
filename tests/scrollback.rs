@@ -413,6 +413,60 @@ fn a_block_running_claude_gets_no_scrollback_replay() {
     );
 }
 
+/// #42: a command block has no shell: the listed program is its first
+/// process, and it still gets no scrollback. The unlisted one beside it
+/// shows its output would otherwise be replayed.
+#[test]
+fn a_command_block_running_a_listed_program_gets_no_scrollback_replay() {
+    let env = TestEnv::new();
+    let server = env.start_server();
+    // Prints, then becomes the program (`exec`), so the block's first
+    // process is the program itself.
+    let started = |printed: &str, program: &str| {
+        block(json!({
+            // Not named like `printed`: the prompt shows the directory.
+            "cwd": env.mkdir(&printed.replace("zz-", "dir-")).to_str().unwrap(),
+            "command": ["sh", "-c", format!("echo {printed}; exec {program}")],
+        }))
+    };
+    let [tail, sleep] = ["tail -n 0 -f /dev/null", "sleep 300"];
+    let fixture = server.create_session(
+        "zz-command-set",
+        &[window(hsplit(
+            0.5,
+            started("zz-listed", tail),
+            started("zz-unlisted", sleep),
+        ))],
+    );
+    let [listed, unlisted] = [0, 1].map(|i| fixture.block_ids()[i]);
+    for (block, printed, name) in [
+        (listed, "zz-listed", "tail"),
+        (unlisted, "zz-unlisted", "sleep"),
+    ] {
+        server.wait_for_capture(&fixture.id, block, printed, |c| c.contains(printed));
+        server.wait_for_foreground(&fixture.id, block, name);
+    }
+
+    env.rexurrect(&server)
+        .env("REXURRECT_NO_SCROLLBACK", "tail")
+        .arg("save")
+        .run()
+        .assert_success();
+    server.kill_session(&fixture.id);
+    env.restore(&server);
+
+    let restored = server.the_session_labelled("zz-command-set");
+    let blocks = server.block_ids(&restored);
+    server.wait_for_typed(&restored, &blocks[0], tail);
+    server.wait_for_typed(&restored, &blocks[1], sleep);
+    let [listed, unlisted] = [0, 1].map(|i| server.capture(&restored, &blocks[i]));
+    assert!(!listed.contains("zz-listed"), "no replay:\n{listed}");
+    assert!(
+        above_prompt(&unlisted).contains(&"zz-unlisted"),
+        "replayed:\n{unlisted}"
+    );
+}
+
 #[test]
 fn the_programs_whose_blocks_get_no_scrollback_replay_can_be_set() {
     let env = TestEnv::with_recorder();

@@ -177,17 +177,21 @@ and block; later saves don't repeat it while it stays too large. Clearing the bl
 (Cmd-K) lets the next save keep it again.
 
 Without the recorder (you don't use zsh, or skipped that step), or in a block whose shell
-started before you loaded it, rexurrect falls back to the program running in the block at
-save time: `nvim`, a dev server or a nested shell comes back with its full command line typed at
-the prompt. Arguments come from `ps`, which drops their quoting. The save also remembers that
-program as the block's last command, so it still comes back after the program exits and the
-block sits at a prompt. A block sitting at a prompt that no save has seen a program in comes back
-with the command restore typed there, if restore created it, or else an empty prompt. Running
-`rexurrect` itself (a `save` you ran there) never counts as a program. Restored blocks fall
-back like any other: what restore typed is only their last command until a save sees a program
-in them. (This replaces the first design, #6, in which a restored block never fell back, so
-without the recorder it kept what restore typed forever.) Whatever the recorder recorded beats
-all of this.
+started before you loaded it, rexurrect falls back to the program running in the block at save
+time: `nvim`, a dev server or a nested shell comes back with its full command line typed at the
+prompt. Each argument is quoted where zsh needs it (`vim 'my file.txt'`), so the typed command
+runs the same program with the same arguments. A program with a line break, tab or other control
+character in an argument (`sh -c` with a multi-line script, say) can't be typed, so it doesn't
+count; the block keeps whatever last command it had. (Earlier versions read the command line
+from `ps`, which turned such characters into `\012`-style escapes; a program remembered that way
+no longer carries forward.) The save also remembers that program as the block's last command, so
+it still comes back after the program exits and the block sits at a prompt. A block sitting at a
+prompt that no save has seen a program in comes back with the command restore typed there, if
+restore created it, or else an empty prompt. Running `rexurrect` itself (a `save` you ran there)
+never counts as a program. Restored blocks fall back like any other: what restore typed is only
+their last command until a save sees a program in them. (This replaces the first design, #6, in
+which a restored block never fell back, so without the recorder it kept what restore typed
+forever.) Whatever the recorder recorded beats all of this.
 
 Restore recognises sessions by where they came from, not by label: two saved sessions with the
 same label both come back, a restored session you rename still counts as live, and a session
