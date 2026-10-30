@@ -90,6 +90,7 @@ impl CaptureContext {
     /// it stays intact.
     fn plain_shell(&self) -> SavedBlock {
         SavedBlock {
+            block_id: None,
             label: None,
             working_directory: self.home.clone(),
             last_command: None,
@@ -317,6 +318,7 @@ impl Capture<'_> {
                     scrollback,
                 }));
             return Ok(SavedBlock {
+                block_id: Some(block_id.clone()),
                 label,
                 working_directory: created.working_directory.clone(),
                 last_command: created.last_command.clone(),
@@ -326,6 +328,7 @@ impl Capture<'_> {
         }
         let process = rex.terminal_process(session_id, block_id)?;
         let saved = SavedBlock {
+            block_id: Some(block_id.clone()),
             label,
             working_directory: workdir::working_directory(rex, session_id, block_id, &process)?,
             last_command: self.last_command(block_id, recorded, &process)?,

@@ -433,3 +433,46 @@ fn an_unknown_agent_is_a_usage_error() {
             .is_none()
     );
 }
+
+/// Rex's server saves its sessions and restores them itself when it starts,
+/// with the same session and block IDs, each block a new shell. Auto-restore
+/// then finds every saved session live: it fills their blocks in instead of
+/// skipping them, resuming agents and typing last commands in place.
+#[test]
+fn a_session_rex_restored_itself_gets_its_agents_resumed_and_last_commands_typed() {
+    let (env, agents) = FakeAgents::env();
+    let server = env.start_server();
+    let fixture = server.create_session(
+        "zz-native",
+        &[window(hsplit(
+            0.5,
+            shell(env.mkdir("a")),
+            shell(env.mkdir("b")),
+        ))],
+    );
+    server.wait_for_pwds(&fixture);
+    let blocks = fixture.block_ids();
+    let conversation = agents.start(&server, &fixture.id, blocks[0], "pi", "pi", 1);
+    server.run(&fixture.id, blocks[1], "true typed-back");
+    server.wait_for_empty_prompt(&fixture.id, blocks[1]);
+    env.save(&server);
+
+    // Restart the server, with auto-restore on.
+    let hook = env
+        .rexurrect_at("unix:///tmp/rxt-none/s.sock")
+        .args(["auto-restore", "--print-hook"])
+        .run()
+        .assert_success()
+        .stdout;
+    let after = env.server_after(server).init_lua(hook).start();
+
+    agents.wait_for_runs("pi", 2);
+    assert_eq!(
+        agents.starts("pi"),
+        ["".to_string(), format!("--session {conversation}")]
+    );
+    after.wait_for_foreground(&fixture.id, blocks[0], "sleep");
+    after.wait_for_typed(&fixture.id, blocks[1], "true typed-back");
+    let ids: Vec<String> = after.sessions().into_iter().map(|s| s.id).collect();
+    assert_eq!(ids, std::slice::from_ref(&fixture.id), "Rex's session, and no other");
+}

@@ -12,6 +12,7 @@ mod cli;
 mod create;
 mod defaults;
 mod error;
+mod fill;
 mod foreground;
 mod instance;
 mod label;

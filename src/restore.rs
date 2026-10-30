@@ -8,6 +8,7 @@ use crate::account;
 use crate::create;
 use crate::defaults::DefaultCommands;
 use crate::error::{Context, Error, Result};
+use crate::fill;
 use crate::instance::RestoreLock;
 use crate::lineage::{Lineage, LineageMap};
 use crate::log;
@@ -15,7 +16,7 @@ use crate::rex::Rex;
 use crate::rex::api::{CreatedSession, ServerStatus};
 use crate::scrollback::Replay;
 use crate::snapshot::{SavedSession, Snapshot};
-use crate::startup::StartingSessions;
+use crate::startup::{self, StartingSessions};
 use crate::state::StateDir;
 use crate::store::SnapshotStore;
 use crate::timestamp::Timestamp;
@@ -56,6 +57,18 @@ pub enum Outcome {
     WouldCreate {
         label: String,
     },
+    /// Rex restored it itself, and restore resumed agents or typed last
+    /// commands in `blocks` of its blocks (see `fill`).
+    Filled {
+        label: String,
+        session_id: String,
+        blocks: usize,
+    },
+    /// Rex restored it itself, and filling it in failed (see `fill`).
+    FillFailed {
+        label: String,
+        error: String,
+    },
     /// A session of its lineage is already live.
     Skipped {
         label: String,
@@ -94,7 +107,7 @@ impl RestoreReport {
     }
 
     fn failed(&self) -> usize {
-        self.count(|o| matches!(o, Outcome::Failed { .. }))
+        self.count(|o| matches!(o, Outcome::Failed { .. } | Outcome::FillFailed { .. }))
     }
 
     /// Whether restore tried to create at least one session and every try
@@ -126,7 +139,9 @@ impl RestoreReport {
     /// Appends each session that failed to the log, as a failure of `command`.
     fn log_failures(&self, state: &StateDir, command: &str) {
         for outcome in &self.outcomes {
-            if let Outcome::Failed { label, error, .. } = outcome {
+            if let Outcome::Failed { label, error, .. } | Outcome::FillFailed { label, error, .. } =
+                outcome
+            {
                 log::log_failure(state, command, &format!("session {label:?}: {error}"));
             }
         }
@@ -146,11 +161,21 @@ impl RestoreReport {
                     writeln!(out, "created  {label}  {session_id}")?
                 }
                 Outcome::WouldCreate { label } => writeln!(out, "would create  {label}")?,
+                Outcome::Filled {
+                    label,
+                    session_id,
+                    blocks,
+                } => writeln!(
+                    out,
+                    "filled   {label}  {session_id}  (restored by Rex; {blocks} block(s) filled in)"
+                )?,
                 Outcome::Skipped {
                     label,
                     live_session_id,
                 } => writeln!(out, "skipped  {label}  (live as {live_session_id})")?,
-                Outcome::Failed { label, error, .. } => writeln!(out, "failed   {label}: {error}")?,
+                Outcome::Failed { label, error, .. } | Outcome::FillFailed { label, error, .. } => {
+                    writeln!(out, "failed   {label}: {error}")?
+                }
             }
         }
         if self.dry_run {
@@ -161,9 +186,15 @@ impl RestoreReport {
                 self.count(|o| matches!(o, Outcome::Skipped { .. })),
             );
         }
+        let filled = self.count(|o| matches!(o, Outcome::Filled { .. }));
+        let filled = if filled > 0 {
+            format!("{filled} filled, ")
+        } else {
+            String::new()
+        };
         writeln!(
             out,
-            "restore: {} created, {} skipped, {} failed",
+            "restore: {} created, {filled}{} skipped, {} failed",
             self.count(|o| matches!(o, Outcome::Created { .. })),
             self.count(|o| matches!(o, Outcome::Skipped { .. })),
             self.failed(),
@@ -207,11 +238,26 @@ pub fn restore(
     server: &ServerStatus,
     options: &RestoreOptions,
 ) -> Result<RestoreReport> {
-    let report = restore_sessions(rex, state, options)?;
+    let fill_live = options.restores_whole_snapshot()
+        && !lock.is_restored(&server.instance_id)?
+        && just_started(server);
+    let report = restore_sessions(rex, state, options, fill_live)?;
     if options.restores_whole_snapshot() && !report.every_attempt_failed() {
         lock.record_restored(&server.instance_id)?;
     }
     Ok(report)
+}
+
+/// Whether `server` started within the startup window, so the blocks Rex
+/// restored are still fresh shells nobody has typed into. A server that
+/// doesn't say when it started never counts.
+fn just_started(server: &ServerStatus) -> bool {
+    server
+        .started_at
+        .as_deref()
+        .and_then(Timestamp::parse_utc)
+        .and_then(|started| Timestamp::now().since(started))
+        .is_some_and(|age| age < startup::WINDOW)
 }
 
 /// Creates each saved session whose lineage has no live session (ADR-0001)
@@ -221,10 +267,14 @@ pub fn restore(
 /// reports what it would create. A session that fails, to create or to have
 /// its blocks told apart, doesn't stop the others; errors that stop the
 /// whole restore (no server, unreadable or unwritable state) are returned.
+///
+/// With `fill_live`, a saved session that's live because Rex restored it
+/// itself is filled in rather than skipped (see `fill`).
 fn restore_sessions(
     rex: &Rex,
     state: &StateDir,
     options: &RestoreOptions,
+    fill_live: bool,
 ) -> Result<RestoreReport> {
     let Some((snapshot_id, snapshot)) = chosen_snapshot(state, options)? else {
         return Ok(RestoreReport::default());
@@ -253,6 +303,25 @@ fn restore_sessions(
     for saved in selected {
         let label = saved.label.clone();
         if let Some(live_session_id) = live.get(&saved.lineage) {
+            if fill_live {
+                let outcome = fill_session(
+                    rex,
+                    saved,
+                    live_session_id,
+                    &FillContext {
+                        snapshot_id: &snapshot_id,
+                        home: &home,
+                        replay: &replay,
+                    },
+                    &mut resuming,
+                    &mut defaults,
+                    &mut starting,
+                )?;
+                if let Some(outcome) = outcome {
+                    report.outcomes.push(outcome);
+                    continue;
+                }
+            }
             report.outcomes.push(Outcome::Skipped {
                 label,
                 live_session_id: live_session_id.clone(),
@@ -331,6 +400,80 @@ fn restore_sessions(
         });
     }
     Ok(report)
+}
+
+struct FillContext<'a> {
+    snapshot_id: &'a str,
+    home: &'a std::path::Path,
+    replay: &'a Replay,
+}
+
+/// Fills in `saved`, live as `session_id` because Rex restored it (see
+/// `fill`), and records what it typed as its blocks' defaults and the
+/// session as starting, as for a session restore creates. `None` if none of
+/// its blocks came back or none has anything to fill in: it's skipped then.
+fn fill_session(
+    rex: &Rex,
+    saved: &SavedSession,
+    session_id: &str,
+    context: &FillContext,
+    resuming: &mut HashSet<crate::agent::AgentConversation>,
+    defaults: &mut DefaultCommands,
+    starting: &mut StartingSessions,
+) -> Result<Option<Outcome>> {
+    let label = saved.label.clone();
+    let failed = |error: String| Outcome::FillFailed {
+        label: label.clone(),
+        error: format!("{session_id}: {error}"),
+    };
+    let view = match rex.view_session(session_id) {
+        Ok(view) => view,
+        Err(e) => return Ok(Some(failed(format!("reading Rex's restored session: {e}")))),
+    };
+    let block_ids = fill::match_blocks(saved, &view);
+    if block_ids.iter().all(Option::is_none) {
+        return Ok(None);
+    }
+    // Only blocks that came back can resume a conversation, so blocks that
+    // didn't mustn't claim theirs.
+    let mut matched = saved.clone();
+    for (block, id) in matched.blocks_mut().zip(&block_ids) {
+        if id.is_none() {
+            block.agent = None;
+        }
+    }
+    let mut as_filled = create::as_created(&matched, context.home, context.replay, resuming);
+    for block in as_filled.blocks_mut() {
+        // Rex started the shell, so no replay printed it.
+        block.scrollback = None;
+    }
+    let result = fill::fill(rex, session_id, &as_filled, &block_ids);
+    let mut changed = false;
+    for (block, id) in as_filled.blocks().zip(&block_ids) {
+        if let (Some(id), Some(command)) = (id, &block.last_command) {
+            changed |= defaults.set(id, command);
+        }
+    }
+    let recording = || format!("recording what restore filled in session {session_id} with");
+    if changed {
+        defaults.save().with_context(recording)?;
+    }
+    let all_matched: Option<Vec<String>> = block_ids.iter().cloned().collect();
+    if let Some(ids) = all_matched {
+        starting.record(session_id, context.snapshot_id, as_filled, Some(ids));
+        starting.save().with_context(recording)?;
+    }
+    Ok(match result {
+        Ok(0) => None,
+        Ok(blocks) => Some(Outcome::Filled {
+            label,
+            session_id: session_id.to_string(),
+            blocks,
+        }),
+        Err((blocks, e)) => Some(failed(format!(
+            "restored by Rex; filled in {blocks} block(s), then failed at {e}"
+        ))),
+    })
 }
 
 /// The snapshot to restore from, with its identifier: the one asked for,

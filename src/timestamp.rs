@@ -57,6 +57,22 @@ impl Timestamp {
         format!("{y:04}-{mo:02}-{d:02} {h:02}:{mi:02}:{s:02} UTC")
     }
 
+    /// Reads an RFC 3339 UTC timestamp with any number of fractional-second
+    /// digits (Rex's own), to the microsecond.
+    pub fn parse_utc(text: &str) -> Option<Timestamp> {
+        let (whole, rest) = text.strip_suffix('Z')?.split_at_checked(19)?;
+        let fraction = rest.strip_prefix('.').unwrap_or(rest);
+        if !rest.is_empty() && (fraction.is_empty() || !rest.starts_with('.')) {
+            return None;
+        }
+        let micros: String = fraction
+            .chars()
+            .chain(std::iter::repeat('0'))
+            .take(6)
+            .collect();
+        Timestamp::parse_rfc3339(&format!("{whole}.{micros}Z"))
+    }
+
     /// Reads what [`Timestamp::rfc3339`] writes.
     fn parse_rfc3339(text: &str) -> Option<Timestamp> {
         let number = |range: std::ops::Range<usize>| {
@@ -146,4 +162,29 @@ fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
     let doy = (153 * mp + 2) / 5 + i64::from(day) - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     era * 146_097 + doe - 719_468
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn utc_timestamps_parse_with_any_number_of_fractional_digits() {
+        let micros = Timestamp::parse_rfc3339("2026-10-30T18:28:02.783512Z");
+        assert_eq!(Timestamp::parse_utc("2026-10-30T18:28:02.783512Z"), micros);
+        assert_eq!(
+            Timestamp::parse_utc("2026-10-30T18:28:02.783512999Z"),
+            micros
+        );
+        assert_eq!(
+            Timestamp::parse_utc("2026-10-30T18:28:02.7835Z"),
+            Timestamp::parse_rfc3339("2026-10-30T18:28:02.783500Z")
+        );
+        assert_eq!(
+            Timestamp::parse_utc("2026-10-30T18:28:02Z"),
+            Timestamp::parse_rfc3339("2026-10-30T18:28:02.000000Z")
+        );
+        assert_eq!(Timestamp::parse_utc("2026-10-30T18:28:02.Z"), None);
+        assert_eq!(Timestamp::parse_utc("2026-10-30T18:28:02+00:00"), None);
+    }
 }

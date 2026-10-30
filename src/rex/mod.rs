@@ -352,6 +352,19 @@ impl Rex {
         self.block_method(session_id, block_id, "format", args)
     }
 
+    /// The terminal `write` method: writes `data` to the block's terminal as
+    /// if typed. A carriage return acts as Enter.
+    pub fn terminal_write(
+        &self,
+        session_id: &str,
+        block_id: &str,
+        data: &str,
+    ) -> Result<(), RexError> {
+        let _: IgnoredAny =
+            self.block_method(session_id, block_id, "write", json!({ "data": data }))?;
+        Ok(())
+    }
+
     /// Calls a block method by its short name (`pwd`, `process`, `write`)
     /// through the `block.method` wrapper, the only form that accepts `args`.
     fn block_method<T: DeserializeOwned>(

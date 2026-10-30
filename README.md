@@ -428,6 +428,17 @@ If auto-restore can't tell which endpoint is the server's (one containing a spac
 percent-encoded; Rex's own endpoints are encoded), it gives up and logs that rather than restore
 into any other server.
 
+### When Rex restores sessions itself
+
+Since Rex 0.1.0-preview.23 (Mac) and Linux server preview.11, the Rex server brings its sessions
+back itself when it starts, with the same session and block IDs, each block a new shell in its
+directory. Auto-restore then fills those sessions in rather than skipping them: in each block that
+came back, it runs the agent's resume command or types the last command, as it would in a block it
+created. It does this only on a server instance it hasn't restored into, within two minutes of the
+server starting, so it never types into a shell you're using. These blocks get no scrollback,
+since Rex has already started their shells; Rex plans to restore scrollback itself. See
+[ADR-0006](docs/adr/0006-fill-in-sessions-rex-restored-itself.md).
+
 ## Agent conversations
 
 A block that was running pi, Claude Code or Codex at save time comes back running that agent

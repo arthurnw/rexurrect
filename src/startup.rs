@@ -31,7 +31,7 @@ const FILE: &str = "starting-sessions.json";
 
 /// How long after restore creates a session its blocks count as starting:
 /// far longer than any shell takes to start.
-const WINDOW: Duration = Duration::from_secs(2 * 60);
+pub const WINDOW: Duration = Duration::from_secs(2 * 60);
 
 /// A session restore created, as a save in its startup window needs it.
 #[derive(Debug, Serialize, Deserialize)]

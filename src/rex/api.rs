@@ -35,6 +35,10 @@ pub struct ServerStatus {
     pub instance_id: String,
     /// The local server's host; equals the `host_id` of every local block.
     pub host_id: String,
+    /// When this instance started, as RFC 3339 text. Absent from servers
+    /// that don't report it.
+    #[serde(default)]
+    pub started_at: Option<String>,
 }
 
 // ---- session.list ----------------------------------------------------------

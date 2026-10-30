@@ -158,6 +158,12 @@ pub struct SavedSplit {
 /// A shell block.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedBlock {
+    /// The live block's ID when it was saved. Rex's own restore brings a
+    /// block back under the same ID, which is how restore finds it then (see
+    /// `fill`). Absent in snapshots older than that, and for blocks saved as
+    /// plain shells.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_id: Option<String>,
     /// Only a user-set label; omitted so Rex uses its default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,

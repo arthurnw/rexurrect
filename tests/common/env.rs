@@ -182,6 +182,15 @@ impl TestEnv {
         ServerBuilder::new(self, self.root().join(format!("s{n}")))
     }
 
+    /// Configures a server to start again in a stopped `server`'s directory:
+    /// on the same socket and state directory, so Rex restores the sessions
+    /// that server saved.
+    pub fn server_after(&self, server: Server) -> ServerBuilder<'_> {
+        let dir = server.dir().to_path_buf();
+        drop(server);
+        ServerBuilder::new(self, dir)
+    }
+
     /// Starts a throwaway server with an empty init.lua.
     pub fn start_server(&self) -> Server {
         self.server().start()
